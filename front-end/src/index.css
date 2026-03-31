@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand: #00D4AA;
+    --color-bg: #161929;
+    --color-surface: #1E2235;
+    --color-border: #2D3554;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-surface-dark text-text-primary font-sans antialiased;
+    font-feature-settings: "tnum" on, "lnum" on;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { @apply bg-surface-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-text-muted; }
+
+  /* Smooth transitions for all interactive elements */
+  button, a { @apply outline-none; }
+  button:focus-visible, a:focus-visible {
+    @apply ring-2 ring-brand/50 ring-offset-2 ring-offset-surface-dark rounded-lg;
+  }
+}
+
+@layer utilities {
+  /* Gradient text */
+  .text-gradient-brand {
+    background: linear-gradient(135deg, #00D4AA, #00FFCC);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Card shadow */
+  .card-glow {
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgba(45, 53, 84, 0.6);
+  }
+
+  /* ECharts cursor */
+  .chart-hover-cursor { cursor: pointer; }
+
+  /* Number tabular alignment */
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+}
+
+/* ECharts tooltip global override */
+.echarts-tooltip-container {
+  font-family: 'IBM Plex Sans', sans-serif !important;
+}
+
+/* Page entry animation */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-page-in {
+  animation: fadeSlideUp 0.4s ease-out both;
+}
+
+/* Shimmer for loading bar */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}

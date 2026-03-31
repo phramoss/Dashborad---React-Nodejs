@@ -1,0 +1,29 @@
+# Dependências
+node_modules/
+ 
+# Variáveis de ambiente (contém senhas e credenciais!)
+.env
+.env.local
+.env.production
+ 
+# Banco de dados Firebird
+*.fdb
+*.gdb
+ 
+# Logs
+logs/
+*.log
+npm-debug.log*
+ 
+# Sistema operacional
+.DS_Store
+Thumbs.db
+ 
+# Editor
+.vscode/
+.idea/
+ 
+# Build
+dist/
+build/
+ 
