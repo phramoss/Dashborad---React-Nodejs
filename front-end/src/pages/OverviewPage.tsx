@@ -11,8 +11,6 @@ import { useKpiSummary } from '@/hooks/useDashboardData'
 
 const KpiSection = memo(function KpiSection() {
   const { data, isLoading } = useKpiSummary()
-  // isLoading = só true na primeira carga sem cache
-  // isFetching seria true em todo re-fetch — causaria piscar o skeleton
   return <KpiRow data={data} loading={isLoading} />
 })
 

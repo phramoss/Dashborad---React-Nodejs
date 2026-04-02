@@ -35,7 +35,7 @@ export function buildTooltipHtml(opts: {
                   gap:16px;margin-top:5px;padding-top:5px;
                   ${highlight ? 'border-top:1px solid #2D3554' : ''}">
         <span style="display:flex;align-items:center;gap:6px;
-                     color:${highlight ? '#E8EAF0' : '#8892B0'};font-size:10px">
+                     color:${highlight ? '#E8EAF0' : '#c9c9c9'};font-size:12px;font-family:'Roboto',sans-serif">
           ${color
             ? `<span style="width:7px;height:7px;border-radius:50%;
                             background:${color};flex-shrink:0;
@@ -43,18 +43,18 @@ export function buildTooltipHtml(opts: {
             : ''}
           ${label}
         </span>
-        <span style="font-size:${highlight ? '13px' : '11px'};
+        <span style="font-size:${highlight ? '18px' : '16px'};
                      font-weight:${highlight ? '700' : '600'};
                      color:${highlight ? '#00D4AA' : '#E8EAF0'};
-                     font-family:'IBM Plex Mono',monospace">
+                     font-family:'Roboto',monospace">
           ${value}
         </span>
       </div>`)
     .join('')
 
   return `
-    <div style="font-family:'IBM Plex Sans',sans-serif;padding:4px 2px;min-width:180px">
-      <div style="font-size:10px;font-weight:700;color:#00D4AA;text-transform:uppercase;
+    <div style="font-family:'Roboto',sans-serif;padding:4px 2px;min-width:180px">
+      <div style="font-size:14px;font-weight:700;color:#00D4AA;text-transform:uppercase;
                   letter-spacing:.1em;padding-bottom:7px;border-bottom:1px solid #2D3554">
         ${opts.title}
       </div>
@@ -91,10 +91,13 @@ interface ChartContainerProps {
   className?: string
   onChartClick?: (params: ChartClickParams) => void
   onChartHover?: (params: ChartClickParams | null) => void
+  onLegendClick?: (params: { name: string }) => void
   active?: boolean
   headerSlot?: React.ReactNode
   animationDelay?: number
   clickable?: boolean
+  scrollable?: boolean
+  maxVisibleHeight?: number
 }
 
 export const ChartContainer = memo(function ChartContainer({
@@ -109,23 +112,45 @@ export const ChartContainer = memo(function ChartContainer({
   className,
   onChartClick,
   onChartHover,
+  onLegendClick,
   active,
   headerSlot,
   animationDelay = 0,
   clickable = false,
+  scrollable = false,
+  maxVisibleHeight,
 }: ChartContainerProps) {
   const chartRef = useRef<ReactECharts>(null)
   const visible = useStaggerReveal(animationDelay)
   const [isHovered, setIsHovered] = useState(false)
 
-  const handleClick    = useCallback((p: unknown) => onChartClick?.(p as ChartClickParams), [onChartClick])
-  const handleMouseover = useCallback((p: unknown) => onChartHover?.(p as ChartClickParams), [onChartHover])
-  const handleMouseout  = useCallback(() => onChartHover?.(null), [onChartHover])
+  // ── Padrão ref-callback: handleClick com deps [] (jamais recriado)
+  // Problema: onChartClick é arrow inline → muda referência a cada render →
+  // handleClick com [onChartClick] como dep também muda → ECharts faz off/on
+  // do listener → click dispara no handler antigo E no novo (duplicata).
+  // Solução: guardar o callback num ref e expor um wrapper estável ([] deps).
+  const onClickRef = useRef(onChartClick)
+  useEffect(() => { onClickRef.current = onChartClick }, [onChartClick])
+
+  const lastClickRef = useRef<{ key: string; ts: number } | null>(null)
+  const handleClick = useCallback((p: unknown) => {
+    if (!onClickRef.current) return
+    const params = p as ChartClickParams
+    const key = `${params.seriesIndex}-${params.dataIndex}`
+    const now = Date.now()
+    if (lastClickRef.current?.key === key && now - lastClickRef.current.ts < 400) return
+    lastClickRef.current = { key, ts: now }
+    onClickRef.current(params)
+  }, []) // [] → função estável → ECharts nunca re-registra → zero duplicatas
+  const handleMouseover   = useCallback((p: unknown) => onChartHover?.(p as ChartClickParams), [onChartHover])
+  const handleMouseout    = useCallback(() => onChartHover?.(null), [onChartHover])
+  const handleLegendClick = useCallback((p: unknown) => onLegendClick?.(p as { name: string }), [onLegendClick])
 
   const events: Record<string, (p: unknown) => void> = {}
-  if (onChartClick)  events['click']     = handleClick
-  if (onChartHover)  events['mouseover'] = handleMouseover
-  if (onChartHover)  events['mouseout']  = handleMouseout
+  if (onChartClick)   events['click']               = handleClick
+  if (onChartHover)   events['mouseover']            = handleMouseover
+  if (onChartHover)   events['mouseout']             = handleMouseout
+  if (onLegendClick)  events['legendselectchanged']  = handleLegendClick
 
   if (loading) return <SkeletonChart className={cn('h-full', className)} />
 
@@ -159,12 +184,12 @@ export const ChartContainer = memo(function ChartContainer({
         <div className="flex items-start justify-between px-4 pt-3 pb-1">
           <div>
             {title && (
-              <h3 className="text-[10px] font-semibold text-text-secondary uppercase tracking-widest">
+              <h3 className="text-[12px] font-semibold text-text-secondary uppercase tracking-widest" style={{ fontFamily: 'Roboto, sans-serif' }}>
                 {title}
               </h3>
             )}
             {subtitle && (
-              <p className="text-[10px] text-text-muted mt-0.5">{subtitle}</p>
+              <p className="text-[12px] text-text-muted mt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }}>{subtitle}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -184,10 +209,33 @@ export const ChartContainer = memo(function ChartContainer({
       )}
 
       {/* Chart area */}
-      <div className={cn('flex-1', empty && 'flex items-center justify-center')}>
-        {empty ? (
+      {empty ? (
+        <div className="flex-1 flex items-center justify-center">
           <EmptyState />
-        ) : (
+        </div>
+      ) : (maxVisibleHeight || scrollable) ? (
+        /* Scrollable wrapper: div externo limita altura e faz scroll vertical;
+           div interno tem a altura real do gráfico para o ECharts renderizar certo */
+        <div
+          style={{
+            maxHeight: maxVisibleHeight ? `${maxVisibleHeight}px` : '420px',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+          }}
+        >
+          <div style={{ height: typeof height === 'number' ? `${height}px` : height, minHeight: 0 }}>
+            <ReactECharts
+              ref={chartRef}
+              option={option}
+              style={{ height: '100%', width: '100%' }}
+              notMerge={false}
+              lazyUpdate={true}
+              onEvents={Object.keys(events).length ? events : undefined}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1">
           <ReactECharts
             ref={chartRef}
             option={option}
@@ -199,8 +247,8 @@ export const ChartContainer = memo(function ChartContainer({
             lazyUpdate={true}
             onEvents={Object.keys(events).length ? events : undefined}
           />
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   )
 })

@@ -10,7 +10,7 @@
  */
 
 import { request } from './api'
-import { toApiParams, toDrillParams } from './params-adapter'
+import { toApiParams, toDrillParams, toDrillParamsChart } from './params-adapter'
 import type {
   KpiSummary, FaturamentoPeriodo, FaturamentoCliente,
   FaturamentoMaterial, FaturamentoGrupo, FaturamentoVendedor,
@@ -155,14 +155,18 @@ export async function fetchFaturamentoPorAno(f: FiltroDashboard): Promise<Fatura
 }
 
 // ─── Por Mês (drill-down) ─────────────────────────────────────
+// FIX: usa toDrillParamsChart (sem meses) — o gráfico sempre busca TODOS os meses.
+// A seleção de meses é apenas visual (dimming) + cross-filter de outros componentes.
 export async function fetchFaturamentoPorMes(f: FiltroDashboard, ano: number): Promise<FaturamentoPeriodo[]> {
   const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
   try {
-    return await request<FaturamentoPeriodo[]>({ method: 'GET', url: '/analytics/por-mes', params: toDrillParams(f, ano) })
+    return await request<FaturamentoPeriodo[]>({ method: 'GET', url: '/analytics/por-mes', params: toDrillParamsChart(f, ano) })
   } catch (err) {
     if (!is404(err)) throw err
     console.info(`[dashboard] fallback por-mes (${ano}) via /faturamento`)
-    const rows = await fetchFatRows(f, ano)
+    // FIX: passa filtros sem meses para o fallback também
+    const fSemMeses = { ...f, meses: [] as number[] }
+    const rows = await fetchFatRows(fSemMeses, ano)
     const map = new Map<number, number>()
     rows.forEach(r => {
       if (!r.data_emisao) return
@@ -171,39 +175,47 @@ export async function fetchFaturamentoPorMes(f: FiltroDashboard, ano: number): P
     })
     return Array.from(map.entries())
       .sort(([a], [b]) => a - b)
-      .map(([mes, faturamento]) => ({ periodo: MESES[mes], faturamento }))
+      .map(([mes, faturamento]) => ({ periodo: MESES[mes], faturamento, mesNumero: mes + 1 }))
   }
 }
 
 // ─── Top Clientes ─────────────────────────────────────────────
-export async function fetchTopClientes(f: FiltroDashboard, limit = 10): Promise<FaturamentoCliente[]> {
+export async function fetchTopClientes(f: FiltroDashboard, limit?: number): Promise<FaturamentoCliente[]> {
   try {
-    return await request<FaturamentoCliente[]>({ method: 'GET', url: '/analytics/top-clientes', params: { ...toApiParams(f), limit: String(limit) } })
+    const params = {
+      ...toApiParams(f),
+      ...(limit !== undefined && { limit: String(limit) }),
+    }
+    return await request<FaturamentoCliente[]>({ method: 'GET', url: '/analytics/top-clientes', params })
   } catch (err) {
     if (!is404(err)) throw err
     console.info('[dashboard] fallback top-clientes via /faturamento')
     const rows = await fetchFatRows(f)
     const map = aggByKey(rows, r => r.cod_cliente || null, r => r.nom_pess)
-    return Array.from(map.entries())
+    const sorted = Array.from(map.entries())
       .map(([id, v]) => ({ clienteId: id, clienteNome: v.label, faturamento: v.total }))
       .sort((a, b) => b.faturamento - a.faturamento)
-      .slice(0, limit)
+    return limit !== undefined ? sorted.slice(0, limit) : sorted
   }
 }
 
 // ─── Top Materiais ────────────────────────────────────────────
-export async function fetchTopMateriais(f: FiltroDashboard, limit = 10): Promise<FaturamentoMaterial[]> {
+export async function fetchTopMateriais(f: FiltroDashboard, limit?: number): Promise<FaturamentoMaterial[]> {
   try {
-    return await request<FaturamentoMaterial[]>({ method: 'GET', url: '/analytics/top-materiais', params: { ...toApiParams(f), limit: String(limit) } })
+    const params = {
+      ...toApiParams(f),
+      ...(limit !== undefined && { limit: String(limit) }),
+    }
+    return await request<FaturamentoMaterial[]>({ method: 'GET', url: '/analytics/top-materiais', params })
   } catch (err) {
     if (!is404(err)) throw err
     console.info('[dashboard] fallback top-materiais via /faturamento')
     const rows = await fetchFatRows(f)
     const map = aggByKey(rows, r => r.cod_ma || null, r => r.material)
-    return Array.from(map.entries())
+    const sorted = Array.from(map.entries())
       .map(([id, v]) => ({ materialId: id, materialNome: v.label, faturamento: v.total }))
       .sort((a, b) => b.faturamento - a.faturamento)
-      .slice(0, limit)
+    return limit !== undefined ? sorted.slice(0, limit) : sorted
   }
 }
 
@@ -236,5 +248,52 @@ export async function fetchTopVendedores(f: FiltroDashboard, limit = 20): Promis
       .map(([id, v]) => ({ vendedorId: id, vendedorNome: v.label, faturamento: v.total }))
       .sort((a, b) => b.faturamento - a.faturamento)
       .slice(0, limit)
+  }
+}
+// ─── Todos os meses de todos os anos (expandAll) ──────────────
+export async function fetchFaturamentoTodosMeses(f: FiltroDashboard): Promise<(FaturamentoPeriodo & { ano: number; mesIdx: number })[]> {
+  const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+  // /analytics/serie/mensal retorna ano+mes+total de TODOS os períodos.
+  // Mantemos apenas filtros não-temporais (cliente, vendedor, material, grupo).
+  // Não passamos data_ini/data_fim — queremos a série histórica completa.
+  const { anos: _anos, meses: _meses, granularidade: _g, ...otherFiltros } = f
+  const baseParams = toApiParams({ ...otherFiltros, anos: [], meses: [], granularidade: 'ano' })
+
+  try {
+    const rows = await request<{ ano: number; mes: number; total: number }[]>({
+      method: 'GET',
+      url: '/analytics/serie/mensal',
+      params: baseParams,
+    })
+    return rows.map(r => ({
+      periodo:     `${MESES[(r.MES ?? r.mes) - 1] ?? '?'}/${String(r.ANO ?? r.ano).slice(2)}`,
+      faturamento: Number(r.TOTAL ?? r.total ?? 0),
+      ano:         Number(r.ANO   ?? r.ano),
+      mesIdx:      Number(r.MES   ?? r.mes) - 1,
+    }))
+  } catch (err) {
+    if (!is404(err)) throw err
+    // Fallback: agrega do /faturamento sem filtro de data
+    console.info('[dashboard] fallback serie/mensal via /faturamento')
+    const rows = await fetchFatRows({ ...f, anos: [] })
+    const map = new Map<string, { total: number; ano: number; mesIdx: number }>()
+    rows.forEach(r => {
+      if (!r.data_emisao) return
+      const d   = new Date(r.data_emisao)
+      const ano = d.getFullYear()
+      const mes = d.getMonth()
+      const key = `${ano}-${String(mes).padStart(2, '0')}`
+      const cur = map.get(key) ?? { total: 0, ano, mesIdx: mes }
+      map.set(key, { ...cur, total: cur.total + r.total })
+    })
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, v]) => ({
+        periodo:     `${MESES[v.mesIdx]}/${String(v.ano).slice(2)}`,
+        faturamento: v.total,
+        ano:         v.ano,
+        mesIdx:      v.mesIdx,
+      }))
   }
 }

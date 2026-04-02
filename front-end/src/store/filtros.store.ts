@@ -8,10 +8,17 @@ export interface HoverState {
   id: number | string | null
 }
 
-// ─── Drill-down state: usuário clicou em ano → entra em meses
+// ─── Drill-down state
+// mode:
+//   'none'      → visão de anos (padrão)
+//   'drill'     → usuário clicou num ano → vê meses daquele ano
+//   'expandAll' → ▶ Expandir por nível: todos os anos exibidos em meses lado a lado
+export type DrillMode = 'none' | 'drill' | 'expandAll'
+
 export interface DrillState {
-  active: boolean
-  ano: number | null
+  active: boolean       // true quando mode !== 'none'
+  mode: DrillMode
+  ano: number | null    // preenchido só em mode === 'drill'
   label: string | null
 }
 
@@ -26,7 +33,7 @@ interface FiltrosState {
 
   // Toggle individual
   toggleAno: (ano: number) => void
-  toggleMes: (mes: number) => void
+  toggleMes: (mes: number) => void   // multi-seleção acumulativa (com dimming)
   toggleCliente: (id: number) => void
   toggleVendedor: (id: number) => void
   toggleMaterial: (id: number) => void
@@ -42,9 +49,10 @@ interface FiltrosState {
   setHover: (hover: HoverState) => void
   clearHover: () => void
 
-  // Drill-down
-  drillInto: (ano: number, label: string) => void
-  drillOut: () => void
+  // Drill-down (Power BI style)
+  drillInto: (ano: number, label: string) => void   // ⬇ Ir para próximo nível (1 ano)
+  drillOut: () => void                               // ⟲ Subir um nível
+  expandAll: () => void                              // ▶ Expandir por nível (todos os anos em meses)
 
   // Reset
   resetFiltros: () => void
@@ -57,11 +65,12 @@ const DEFAULT_FILTROS: FiltroDashboard = {
 }
 
 const DEFAULT_HOVER: HoverState = { dimension: null, id: null }
-const DEFAULT_DRILL: DrillState = { active: false, ano: null, label: null }
+const DEFAULT_DRILL: DrillState = { active: false, mode: 'none', ano: null, label: null }
 
-function countActive(f: FiltroDashboard): number {
-  return f.anos.length + f.meses.length + f.clientes.length +
-    f.vendedores.length + f.materiais.length + f.grupos.length
+function countActive(f: FiltroDashboard, drill: DrillState): number {
+  const anos  = drill.active ? 0 : f.anos.length
+  const meses = drill.active ? 0 : f.meses.length
+  return anos + meses + f.clientes.length + f.vendedores.length + f.materiais.length + f.grupos.length
 }
 
 function toggle(arr: number[], id: number): number[] {
@@ -82,74 +91,84 @@ export const useFiltrosStore = create<FiltrosState>()(
       toggleAno: (ano) =>
         set((s) => {
           const filtros = { ...s.filtros, anos: toggle(s.filtros.anos, ano) }
-          return { filtros, activeCount: countActive(filtros) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'toggleAno'),
 
+      // Multi-seleção acumulativa: cada clique adiciona/remove um mês → dimming no gráfico + filtra na API
       toggleMes: (mes) =>
         set((s) => {
           const filtros = { ...s.filtros, meses: toggle(s.filtros.meses, mes) }
-          return { filtros, activeCount: countActive(filtros) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'toggleMes'),
 
       toggleCliente: (id) =>
         set((s) => {
           const filtros = { ...s.filtros, clientes: toggle(s.filtros.clientes, id) }
-          return { filtros, activeCount: countActive(filtros) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'toggleCliente'),
 
       toggleVendedor: (id) =>
         set((s) => {
           const filtros = { ...s.filtros, vendedores: toggle(s.filtros.vendedores, id) }
-          return { filtros, activeCount: countActive(filtros) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'toggleVendedor'),
 
       toggleMaterial: (id) =>
         set((s) => {
           const filtros = { ...s.filtros, materiais: toggle(s.filtros.materiais, id) }
-          return { filtros, activeCount: countActive(filtros) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'toggleMaterial'),
 
       toggleGrupo: (id) =>
         set((s) => {
           const filtros = { ...s.filtros, grupos: toggle(s.filtros.grupos, id) }
-          return { filtros, activeCount: countActive(filtros) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'toggleGrupo'),
 
       setClientes: (clientes) =>
-        set((s) => { const filtros = { ...s.filtros, clientes }; return { filtros, activeCount: countActive(filtros) } }, false, 'setClientes'),
+        set((s) => { const filtros = { ...s.filtros, clientes }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setClientes'),
 
       setVendedores: (vendedores) =>
-        set((s) => { const filtros = { ...s.filtros, vendedores }; return { filtros, activeCount: countActive(filtros) } }, false, 'setVendedores'),
+        set((s) => { const filtros = { ...s.filtros, vendedores }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setVendedores'),
 
       setMateriais: (materiais) =>
-        set((s) => { const filtros = { ...s.filtros, materiais }; return { filtros, activeCount: countActive(filtros) } }, false, 'setMateriais'),
+        set((s) => { const filtros = { ...s.filtros, materiais }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setMateriais'),
 
       setGrupos: (grupos) =>
-        set((s) => { const filtros = { ...s.filtros, grupos }; return { filtros, activeCount: countActive(filtros) } }, false, 'setGrupos'),
+        set((s) => { const filtros = { ...s.filtros, grupos }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setGrupos'),
 
       setHover: (hover) => set({ hover }, false, 'setHover'),
       clearHover: () => set({ hover: DEFAULT_HOVER }, false, 'clearHover'),
 
+      // ⬇ Ir para o próximo nível: entra nos meses de 1 ano específico
       drillInto: (ano, label) =>
-        set((s) => ({
-          drill: { active: true, ano, label },
-          // Ao fazer drill, seta o ano, limpa meses e muda granularidade para mês
-          filtros: { ...s.filtros, anos: [ano], meses: [], granularidade: 'mes' },
-          activeCount: countActive({ ...s.filtros, anos: [ano], meses: [] }),
-        }), false, 'drillInto'),
+        set((s) => {
+          const drill: DrillState = { active: true, mode: 'drill', ano, label }
+          const filtros = { ...s.filtros, anos: [ano], meses: [], granularidade: 'mes' as GranularidadePeriodo }
+          return { drill, filtros, activeCount: countActive(filtros, drill) }
+        }, false, 'drillInto'),
 
+      // ⟲ Subir um nível: volta para visão de anos
       drillOut: () =>
-        set((s) => ({
-          drill: DEFAULT_DRILL,
-          // Ao voltar, limpa ano e meses selecionados
-          filtros: { ...s.filtros, anos: [], meses: [], granularidade: 'ano' },
-          activeCount: countActive({ ...s.filtros, anos: [], meses: [] }),
-        }), false, 'drillOut'),
+        set((s) => {
+          const drill = DEFAULT_DRILL
+          const filtros = { ...s.filtros, anos: [], meses: [], granularidade: 'ano' as GranularidadePeriodo }
+          return { drill, filtros, activeCount: countActive(filtros, drill) }
+        }, false, 'drillOut'),
+
+      // ▶ Expandir por nível: mostra todos os anos selecionados (ou todos) em meses agrupados
+      expandAll: () =>
+        set((s) => {
+          const drill: DrillState = { active: true, mode: 'expandAll', ano: null, label: null }
+          // Mantém anos selecionados (ou todos); limpa meses; muda granularidade para mês
+          const filtros = { ...s.filtros, meses: [], granularidade: 'mes' as GranularidadePeriodo }
+          return { drill, filtros, activeCount: countActive(filtros, drill) }
+        }, false, 'expandAll'),
 
       resetFiltro: (key) =>
         set((s) => {
           const filtros = { ...s.filtros, [key]: [] }
-          return { filtros, activeCount: countActive(filtros) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'resetFiltro'),
 
       resetFiltros: () =>

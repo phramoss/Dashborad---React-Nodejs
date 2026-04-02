@@ -88,7 +88,7 @@ router.get('/analytics/por-ano', async (req, res, next) => {
     const { where, params, campoData } = buildDashFilters(req.query)
     const w = toWhere(where)
     const sql = `
-      SELECT EXTRACT(YEAR FROM ${campoData}) AS ano, SUM(TOTAL_DOCIT) AS total
+      SELECT EXTRACT(YEAR FROM ${campoData}) AS ano, ROUND(SUM(TOTAL_DOCIT),2) AS total
       FROM BI_FATURAMENTO ${w}
       GROUP BY EXTRACT(YEAR FROM ${campoData})
       ORDER BY ano
@@ -123,16 +123,17 @@ router.get('/analytics/por-mes', async (req, res, next) => {
 
 router.get('/analytics/top-clientes', async (req, res, next) => {
   try {
-    const { limit = '10' } = req.query
-    const lim = Math.min(100, Math.max(1, Number(limit)))
+    const { limit } = req.query
+    const lim = limit !== undefined ? Math.max(1, Number(limit)) : null
     const { where, params } = buildDashFilters(req.query)
     const w = toWhere(where)
+    const rowsClause = lim !== null ? `ROWS 1 TO ${lim}` : ''
     const sql = `
       SELECT COD_CLIENTE AS cod_cliente, NOM_PESS AS cliente, SUM(TOTAL_DOCIT) AS total
       FROM BI_FATURAMENTO ${w}
       GROUP BY COD_CLIENTE, NOM_PESS
       ORDER BY total DESC
-      ROWS 1 TO ${lim}
+      ${rowsClause}
     `
     const rows = await query(sql, params)
     res.json(rows.map(r => ({
@@ -145,8 +146,9 @@ router.get('/analytics/top-clientes', async (req, res, next) => {
 
 router.get('/analytics/top-materiais', async (req, res, next) => {
   try {
-    const { limit = '10' } = req.query
-    const lim = Math.min(100, Math.max(1, Number(limit)))
+    const { limit } = req.query
+    const lim = limit !== undefined ? Math.max(1, Number(limit)) : null
+    const rowsClause = lim !== null ? `ROWS 1 TO ${lim}` : ''
     const { where, params } = buildDashFilters(req.query)
     const w = toWhere(where)
     const wMat = w
@@ -162,13 +164,13 @@ router.get('/analytics/top-materiais', async (req, res, next) => {
       .replace(/\bPAIS\b/g, 'FAT.PAIS')
       .replace(/\bUF\b/g, 'FAT.UF')
     const sql = `
-      SELECT FAT.COD_MA, MA.MATERIAL AS nom_ma, SUM(FAT.TOTAL_DOCIT) AS total
+      SELECT FAT.COD_MA, MA.MATERIAL AS nom_ma, ROUND(SUM(FAT.TOTAL_DOCIT),2) AS total
       FROM BI_FATURAMENTO FAT
       LEFT JOIN BI_MATERIAL MA ON MA.COD_MA = FAT.COD_MA
       ${wMat}
       GROUP BY FAT.COD_MA, MA.MATERIAL
       ORDER BY total DESC
-      ROWS 1 TO ${lim}
+      ${rowsClause}
     `
     let rows
     try {
@@ -178,7 +180,7 @@ router.get('/analytics/top-materiais', async (req, res, next) => {
         SELECT COD_MA, MATERIAL, SUM(TOTAL_DOCIT) AS total
         FROM BI_FATURAMENTO ${w}
         GROUP BY COD_MA, MATERIAL
-        ORDER BY total DESC ROWS 1 TO ${lim}
+        ORDER BY total DESC ${rowsClause}
       `
       rows = await query(sqlFallback, params)
     }

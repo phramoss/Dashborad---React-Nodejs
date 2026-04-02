@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { Bell, RefreshCw, Calendar } from 'lucide-react'
+import { Bell, RefreshCw, Calendar, Menu } from 'lucide-react'
 import { useActiveCount, useResetFiltros } from '@/store/filtros.store'
 import { useGlobalLoading } from '@/hooks/useGlobalLoading'
 import { cn } from '@/lib/utils'
@@ -24,7 +24,11 @@ function CurrentDate() {
   )
 }
 
-export function TopBar() {
+interface TopBarProps {
+  onMenuClick?: () => void
+}
+
+export function TopBar({ onMenuClick }: TopBarProps) {
   const location    = useLocation()
   const activeCount = useActiveCount()
   const resetFiltros = useResetFiltros()
@@ -33,12 +37,20 @@ export function TopBar() {
 
   return (
     <header className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-surface-border bg-surface">
-      {/* Left: title + breadcrumb */}
+      {/* Left: hamburguer (mobile) + title */}
       <div className="flex items-center gap-3">
+        {/* Botão menu — só aparece no mobile */}
+        <button
+          onClick={onMenuClick}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all md:hidden"
+        >
+          <Menu size={16} strokeWidth={1.5} />
+        </button>
+
         <div className="flex flex-col justify-center leading-none">
-          <span className="text-[10px] text-text-muted">{page?.desc}</span>
-          <span className="text-xs font-semibold font-display tracking-wide text-text-primary uppercase">
-            {page?.title ?? 'Dashboard'}
+          
+          <span className="text-base sm:text-2xl font-semibold font-display tracking-wide text-text-primary uppercase">
+            {page?.title ?? 'Dashboard'}  - {page?.desc}
           </span>
         </div>
 
@@ -61,7 +73,6 @@ export function TopBar() {
           </button>
         )}
 
-        {/* Spinner when loading without active filters */}
         {isLoading && activeCount === 0 && (
           <RefreshCw size={12} className="text-text-muted animate-spin" />
         )}
@@ -73,11 +84,9 @@ export function TopBar() {
 
         <button className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all relative">
           <Bell size={14} strokeWidth={1.5} />
-          {/* Notification dot */}
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-status-danger rounded-full" />
         </button>
 
-        {/* Avatar */}
         <button className="w-7 h-7 rounded-full bg-gradient-to-br from-brand to-chart-blue border border-brand/30 flex items-center justify-center transition-transform hover:scale-105">
           <span className="text-surface-dark font-bold text-[10px]">U</span>
         </button>

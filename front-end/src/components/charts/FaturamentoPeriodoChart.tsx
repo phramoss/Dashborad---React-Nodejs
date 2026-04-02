@@ -1,8 +1,12 @@
 import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ChevronsDown, ChevronDown, RotateCcw } from 'lucide-react'
 import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
-import { useFaturamentoPeriodo, useFaturamentoPorMes } from '@/hooks/useDashboardData'
+import {
+  useFaturamentoPeriodo,
+  useFaturamentoPorMes,
+  useFaturamentoTodosMeses,
+} from '@/hooks/useDashboardData'
 import { useFiltrosStore, useDrill } from '@/store/filtros.store'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 
@@ -17,31 +21,140 @@ function calcVar(atual: number, anterior: number | null): number | null {
   return ((atual - anterior) / anterior) * 100
 }
 
+// ─── Botões estilo Power BI ───────────────────────────────────
+interface DrillControlsProps {
+  mode: 'none' | 'drill' | 'expandAll'
+  onExpandAll: () => void
+  onDrillNext: () => void
+  onDrillUp: () => void
+  canDrillUp: boolean
+  canDrillNext: boolean
+}
+
+function DrillControls({ mode, onExpandAll, onDrillNext, onDrillUp, canDrillUp, canDrillNext }: DrillControlsProps) {
+  const base = 'flex items-center justify-center w-6 h-6 rounded transition-all duration-150 border'
+  const on   = 'border-brand bg-brand/20 text-brand hover:bg-brand/30'
+  const off  = 'border-white/10 bg-white/5 text-white/40 hover:border-brand/50 hover:text-brand/70 hover:bg-brand/10'
+  const dis  = 'border-white/5 bg-transparent text-white/15 cursor-not-allowed'
+
+  return (
+    <div className="flex items-center gap-1">
+      {/* ▶ Expandir por nível — todos os anos em meses lado a lado */}
+      <button
+        onClick={onExpandAll}
+        disabled={mode === 'expandAll'}
+        className={`${base} ${mode === 'expandAll' ? on : off}`}
+        title="▶ Expandir por nível — ver todos os meses de todos os anos"
+      >
+        <ChevronsDown size={12} />
+      </button>
+
+      {/* ⬇ Ir para o próximo nível — drill em 1 ano (requer 1 ano selecionado) */}
+      <button
+        onClick={onDrillNext}
+        disabled={!canDrillNext}
+        className={`${base} ${!canDrillNext ? dis : mode === 'drill' ? on : off}`}
+        title={canDrillNext ? '⬇ Entrar nos meses do ano selecionado' : '⬇ Selecione um único ano primeiro'}
+      >
+        <ChevronDown size={12} />
+      </button>
+
+      {/* ⟲ Subir um nível — volta para anos */}
+      <button
+        onClick={onDrillUp}
+        disabled={!canDrillUp}
+        className={`${base} ${!canDrillUp ? dis : off}`}
+        title="⟲ Subir um nível — voltar para anos"
+      >
+        <RotateCcw size={11} />
+      </button>
+    </div>
+  )
+}
+
+// ─── Chart principal ──────────────────────────────────────────
 export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
   const { data: dataAnos, isLoading: loadingAnos, isError, refetch } = useFaturamentoPeriodo()
-  const { filtros, toggleAno, toggleMes, drillInto, drillOut, resetFiltro } = useFiltrosStore()
+  const { filtros, toggleAno, toggleMes, drillInto, drillOut, expandAll } = useFiltrosStore()
   const drill = useDrill()
 
+  // Drill de 1 ano → meses daquele ano
   const { data: dataMeses, isLoading: loadingMes } = useFaturamentoPorMes(
-    drill.active ? drill.ano : null
+    drill.mode === 'drill' ? drill.ano : null
   )
 
-  const isLoading = drill.active ? loadingMes : loadingAnos
-  const items = drill.active ? (dataMeses ?? []) : (dataAnos ?? [])
+  // expandAll → todos os meses de todos os anos
+  const { data: dataTodos, isLoading: loadingTodos } = useFaturamentoTodosMeses(
+    drill.mode === 'expandAll'
+  )
+
+  const isLoading =
+    drill.mode === 'drill'     ? loadingMes :
+    drill.mode === 'expandAll' ? loadingTodos :
+    loadingAnos
+
+  // Normaliza os dados para o formato padrão
+  const rawItems =
+    drill.mode === 'drill'     ? (dataMeses ?? []) :
+    drill.mode === 'expandAll' ? (dataTodos  ?? []) :
+    (dataAnos ?? [])
+
+  // Extrai apenas os campos do gráfico (expandAll tem campos extras)
+  const items: { periodo: string; faturamento: number }[] = rawItems.map(d => ({
+    periodo:     d.periodo,
+    faturamento: d.faturamento,
+  }))
+
+  // ─── FIX: Mapeia cada dataIndex para o número real do mês (1-12) ───
+  // No drill, usa mesNumero da resposta da API (corrige quando meses sem dados são omitidos).
+  // No expandAll, usa mesIdx + 1 do dataTodos.
+  // No modo anos (none), não é usado.
+  const mesNumByIndex: number[] = useMemo(() => {
+    if (drill.mode === 'drill') {
+      return (dataMeses ?? []).map(d => d.mesNumero ?? 0)
+    }
+    if (drill.mode === 'expandAll') {
+      return (dataTodos ?? []).map(d => d.mesIdx + 1)
+    }
+    return []
+  }, [drill.mode, dataMeses, dataTodos])
+
+  // Anos dos itens expandAll para desenhar separadores
+  const expandAllAnos: number[] = drill.mode === 'expandAll'
+    ? (dataTodos ?? []).map(d => d.ano)
+    : []
 
   const option = useMemo((): EChartsOption => {
     const withVar: PeriodoItem[] = items.map((d, i) => ({
       ...d,
       variacao: i === 0 ? null : calcVar(d.faturamento, items[i - 1].faturamento),
     }))
-    const maxVal = Math.max(...items.map((d) => d.faturamento), 1)
+    const maxVal      = Math.max(...items.map(d => d.faturamento), 1)
     const activeAnos  = filtros.anos
     const activeMeses = filtros.meses
+
+    // Separadores entre anos no modo expandAll
+    const anoBreaks = new Set<number>()
+    if (drill.mode === 'expandAll' && expandAllAnos.length > 0) {
+      let lastAno = expandAllAnos[0]
+      expandAllAnos.forEach((ano, i) => {
+        if (i > 0 && ano !== lastAno) { anoBreaks.add(i); lastAno = ano }
+      })
+    }
+
+    // Labels do eixo X
+    const xLabels = items.map((d, i) => {
+      if (drill.mode !== 'expandAll') return d.periodo
+      if (i === 0 || anoBreaks.has(i)) {
+        return `{bold|${d.periodo}}`
+      }
+      return d.periodo
+    })
 
     return {
       backgroundColor: 'transparent',
       animation: true,
-      animationDuration: 500,
+      animationDuration: 300,
       animationEasing: 'cubicOut',
       tooltip: {
         trigger: 'axis',
@@ -53,8 +166,11 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
         formatter: (params: unknown) => {
           const [p] = params as Array<{ name: string; value: number; dataIndex: number }>
           const item = withVar[p.dataIndex]
+          const anoLabel = drill.mode === 'expandAll' && expandAllAnos[p.dataIndex]
+            ? ` (${expandAllAnos[p.dataIndex]})`
+            : ''
           return buildTooltipHtml({
-            title: p.name,
+            title: p.name + anoLabel,
             rows: [
               { label: 'Faturamento', value: formatCurrency(p.value, true), color: CHART_COLORS.teal, highlight: true },
               ...(item.variacao !== null
@@ -64,22 +180,38 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
           })
         },
       },
-      grid: { left: 12, right: 12, top: 28, bottom: 24, containLabel: true },
+      grid: { left: 12, right: 12, top: 28, bottom: drill.mode === 'expandAll' ? 40 : 24, containLabel: true },
       xAxis: {
         type: 'category',
-        data: items.map((d) => d.periodo),
-        axisLine: { lineStyle: { color: CHART_THEME.axisColor } },
+        data: xLabels,
+        axisLine: { lineStyle: { color: '#5a5e5d' } },
         axisTick: { show: false },
-        axisLabel: { color: CHART_THEME.textColor, fontSize: 11, fontFamily: 'IBM Plex Sans', margin: 10 },
+        axisLabel: {
+          color: '#c9c9c9',
+          fontSize: drill.mode === 'expandAll' ? 10 : 12,
+          fontFamily: 'Roboto',
+          margin: 10,
+          rotate: drill.mode === 'expandAll' ? 45 : 0,
+          rich: {
+            bold: { color: '#00D4AA', fontSize: 10, fontWeight: 'bold', fontFamily: 'Roboto' },
+          },
+        },
+        splitLine: {
+          show: drill.mode === 'expandAll',
+          interval: (_: number, value: string) => {
+            return value.includes('{bold|')
+          },
+          lineStyle: { color: '#ffffff20', type: 'dashed', width: 1 },
+        },
       },
       yAxis: {
         type: 'value',
         max: maxVal * 1.18,
         splitLine: { lineStyle: { color: CHART_THEME.gridLineColor, type: 'dashed', opacity: 0.6 } },
         axisLabel: {
-          color: CHART_THEME.textColor,
-          fontSize: 10,
-          fontFamily: 'IBM Plex Mono',
+          color: '#c9c9c9',
+          fontSize: 12,
+          fontFamily: 'Roboto',
           formatter: (v: number) => {
             if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(0)}Mi`
             if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
@@ -91,34 +223,55 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
         {
           name: 'Faturamento',
           type: 'bar',
-          barMaxWidth: 52,
+          barMaxWidth: drill.mode === 'expandAll' ? 28 : 52,
           data: items.map((d, i) => {
-            // No modo drill (meses): dimming por mês selecionado
-            // No modo anos: dimming por ano selecionado
-            const dimmed = drill.active
-              ? activeMeses.length > 0 && !activeMeses.includes(i + 1)
-              : activeAnos.length > 0 && !activeAnos.includes(Number(d.periodo))
+            // ─── FIX: usa mesNumByIndex[i] (número real do mês) em vez de i+1 ───
+            const mesNum = mesNumByIndex[i] ?? 0
+
+            // FIX: expandAll agora suporta dimming por mês selecionado
+            const dimmed =
+              drill.mode === 'expandAll' ? (activeMeses.length > 0 && !activeMeses.includes(mesNum)) :
+              drill.mode === 'drill'     ? (activeMeses.length > 0 && !activeMeses.includes(mesNum)) :
+              drill.mode === 'none'      ? (activeAnos.length > 0  && !activeAnos.includes(Number(d.periodo))) :
+              false
+
+            // FIX: expandAll agora suporta highlight de barras selecionadas
+            const isSelected =
+              (drill.mode === 'expandAll' && activeMeses.includes(mesNum)) ||
+              (drill.mode === 'drill'     && activeMeses.includes(mesNum)) ||
+              (drill.mode === 'none'      && activeAnos.includes(Number(d.periodo)))
 
             const isMax = d.faturamento === maxVal
+
+            const isNewAno = drill.mode === 'expandAll' && anoBreaks.has(i)
+            const barColor = isNewAno ? CHART_COLORS.blue : CHART_COLORS.teal
+
             return {
               value: d.faturamento,
               itemStyle: {
                 borderRadius: [4, 4, 0, 0],
                 color: dimmed
-                  ? `${CHART_COLORS.teal}22`
+                  ? `${barColor}22`
+                  : isSelected
+                  ? { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
+                      colorStops: [{ offset: 0, color: '#00FFCC' }, { offset: 1, color: barColor }] }
                   : isMax
-                  ? { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: '#00FFCC' }, { offset: 1, color: CHART_COLORS.teal }] }
-                  : { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: `${CHART_COLORS.teal}CC` }, { offset: 1, color: `${CHART_COLORS.teal}66` }] },
+                  ? { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
+                      colorStops: [{ offset: 0, color: '#00FFCC' }, { offset: 1, color: barColor }] }
+                  : { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
+                      colorStops: [{ offset: 0, color: `${barColor}CC` }, { offset: 1, color: `${barColor}66` }] },
+                shadowBlur: isSelected ? 10 : 0,
+                shadowColor: isSelected ? `${barColor}60` : 'transparent',
               },
-              emphasis: { itemStyle: { color: CHART_COLORS.teal, shadowBlur: 12, shadowColor: `${CHART_COLORS.teal}50` } },
+              emphasis: { itemStyle: { color: barColor, shadowBlur: 12, shadowColor: `${barColor}50` } },
             }
           }),
           label: {
             show: true,
             position: 'top' as const,
-            color: CHART_THEME.textColor,
-            fontSize: 10,
-            fontFamily: 'IBM Plex Mono',
+            color: '#c9c9c9',
+            fontSize: drill.mode === 'expandAll' ? 9 : 12,
+            fontFamily: 'Roboto',
             formatter: (p: { value: unknown }) => {
               const v = Number(p.value)
               if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}Mi`
@@ -128,44 +281,108 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
           },
         },
       ],
+      // Marca visual de separação por ano no expandAll
+      ...(drill.mode === 'expandAll' && anoBreaks.size > 0 ? {
+        markLine: {
+          data: Array.from(anoBreaks).map(idx => ({ xAxis: idx - 0.5 })),
+          lineStyle: { color: '#ffffff30', type: 'solid', width: 1 },
+          label: { show: false },
+          symbol: 'none',
+        },
+      } : {}),
     }
-  }, [items, filtros.anos, filtros.meses, drill])
+  }, [items, filtros.anos, filtros.meses, drill, expandAllAnos, mesNumByIndex])
+
+  // Legenda de anos no expandAll (abaixo do gráfico)
+  const anosNoExpandAll = useMemo(() => {
+    if (drill.mode !== 'expandAll' || !dataTodos) return []
+    const seen = new Set<number>()
+    const result: { ano: number; startIdx: number }[] = []
+    dataTodos.forEach((d, i) => {
+      if (!seen.has(d.ano)) { seen.add(d.ano); result.push({ ano: d.ano, startIdx: i }) }
+    })
+    return result
+  }, [drill.mode, dataTodos])
+
+  const title =
+    drill.mode === 'drill'     ? `${drill.label} — Mensal` :
+    drill.mode === 'expandAll' ? 'Todos os Anos — Mensal' :
+    'Faturamento por Período'
+
+  const subtitle =
+    drill.mode === 'drill'
+      ? 'Clique nas barras para destacar meses · selecione múltiplos · clique novamente para remover'
+      : drill.mode === 'expandAll'
+      ? 'Clique nos meses para filtrar · selecione múltiplos · use ⟲ para voltar'
+      : 'Clique uma vez para destacar o ano · clique novamente para entrar nos meses'
+
+  const canDrillUp   = drill.mode !== 'none'
+  const canDrillNext = drill.mode === 'none' && filtros.anos.length === 1
 
   return (
     <ChartContainer
-      title={drill.active ? `${drill.label} — Mensal` : 'Faturamento por Período'}
-      subtitle={
-        drill.active
-          ? 'Clique numa barra para filtrar o mês'
-          : 'Clique numa barra para ver meses · clique novamente para filtrar'
-      }
+      title={title}
+      subtitle={subtitle}
       option={option}
       loading={isLoading}
       error={isError}
       empty={!isLoading && items.length === 0}
       onRetry={() => refetch()}
-      height={260}
-      active={filtros.anos.length > 0 || filtros.meses.length > 0}
+      height={drill.mode === 'expandAll' ? 300 : 260}
+      active={!drill.active && filtros.anos.length > 0}
       clickable
       animationDelay={0}
       headerSlot={
-        drill.active ? (
-          <button
-            onClick={drillOut}
-            className="flex items-center gap-1 text-[10px] text-brand hover:text-brand/80 transition-colors"
-          >
-            <ChevronLeft size={12} /> Voltar
-          </button>
-        ) : undefined
+        <div className="flex items-center gap-3">
+          {/* FIX: Badge de meses selecionados — visível em drill E expandAll */}
+          {(drill.mode === 'drill' || drill.mode === 'expandAll') && filtros.meses.length > 0 && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-brand/10 text-brand border border-brand/20">
+              {filtros.meses.length} {filtros.meses.length === 1 ? 'mês' : 'meses'} selecionados
+            </span>
+          )}
+
+          {/* Botões Power BI */}
+          <DrillControls
+            mode={drill.mode}
+            canDrillUp={canDrillUp}
+            canDrillNext={canDrillNext}
+            onExpandAll={expandAll}
+            onDrillNext={() => {
+              if (drill.mode === 'none' && filtros.anos.length === 1) {
+                const ano = filtros.anos[0]
+                drillInto(ano, String(ano))
+              }
+            }}
+            onDrillUp={drillOut}
+          />
+
+          {/* Botão Voltar textual */}
+          {drill.active && (
+            <button
+              onClick={drillOut}
+              className="flex items-center gap-1 text-[10px] text-brand hover:text-brand/80 transition-colors ml-1"
+            >
+              <ChevronLeft size={12} /> Voltar
+            </button>
+          )}
+        </div>
       }
       onChartClick={(params) => {
-        if (drill.active) {
-          // Modo meses: toggle pelo índice (1-based) para compatibilidade com filtro numérico
-          const mes = params.dataIndex + 1
-          toggleMes(mes)
+        // ─── FIX: expandAll agora suporta multi-seleção de meses ───
+        if (drill.mode === 'expandAll') {
+          const mesNum = mesNumByIndex[params.dataIndex]
+          if (mesNum) toggleMes(mesNum)
           return
         }
-        // Modo anos: primeiro clique filtra, segundo clique faz drill-down
+
+        if (drill.mode === 'drill') {
+          // FIX: usa mesNumByIndex (número real do mês) em vez de dataIndex+1
+          const mesNum = mesNumByIndex[params.dataIndex]
+          if (mesNum) toggleMes(mesNum)
+          return
+        }
+
+        // Modo anos: 1º clique destaca, 2º clique no mesmo ano entra nos meses
         const ano = Number(params.name)
         if (isNaN(ano)) return
         if (filtros.anos.includes(ano)) {

@@ -120,10 +120,11 @@ router.get('/filtros/grupos', async (req, res, next) => {
     // NOM_GRP vem direto de BI_FATURAMENTO — sem JOIN necessário
     const sql = `
       SELECT DISTINCT
-        COD_GRP AS id,
-        NOM_GRP AS label
+        BI_FATURAMENTO.COD_GRP AS id,
+        GRP.NOM_GRP AS label
       FROM BI_FATURAMENTO
-      WHERE COD_GRP IS NOT NULL
+      LEFT JOIN BI_GRUPO GRP ON GRP.COD_GRP = BI_FATURAMENTO.COD_GRP
+      WHERE BI_FATURAMENTO.COD_GRP IS NOT NULL
         AND NOM_GRP IS NOT NULL
       ORDER BY label
     `

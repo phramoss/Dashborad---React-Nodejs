@@ -4,10 +4,10 @@
 
 @layer base {
   :root {
-    --color-brand: #00D4AA;
-    --color-bg: #161929;
-    --color-surface: #1E2235;
-    --color-border: #2D3554;
+    --color-brand:   #00d4aa;
+    --color-bg:      #161929;
+    --color-surface: #1e2235;
+    --color-border:  #2d3554;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -20,6 +20,7 @@
 
   body {
     @apply bg-surface-dark text-text-primary font-sans antialiased;
+    font-size: 18px;
     font-feature-settings: "tnum" on, "lnum" on;
   }
 
@@ -35,6 +36,13 @@
     @apply ring-2 ring-brand/50 ring-offset-2 ring-offset-surface-dark rounded-lg;
   }
 }
+
+/* Tamanhos de texto — use estas classes nos componentes */
+/* KPI / números:       font-size: 29px  */
+/* Títulos de card:     font-size: 16px */
+/* Corpo / parágrafo:   font-size: 18px  */
+/* Labels / legendas:   font-size: 16px */
+/* Sidebar / menu:      font-size: 15px */
 
 @layer utilities {
   /* Gradient text */

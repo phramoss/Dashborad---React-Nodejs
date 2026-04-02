@@ -18,8 +18,13 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
 
   const items = useMemo(() => {
     return (data ?? [])
-      .filter(d => d.grupoId !== 0 && d.grupoNome !== 'Grupo null' && d.grupoNome !== 'Grupo 0')
-      .map(d => ({ ...d, grupoNome: sanitizeName(d.grupoNome) }))
+      .map(d => ({
+        ...d,
+        grupoNome: d.grupoId === 0 || d.grupoNome === 'Grupo null' || d.grupoNome === 'Grupo 0'
+          ? 'Sem Grupo'
+          : sanitizeName(d.grupoNome),
+      }))
+      .filter(d => d.faturamento > 0)
   }, [data])
 
   const total = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
@@ -40,7 +45,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
     return {
       backgroundColor: 'transparent',
       animation: true,
-      animationDuration: 400,
+      animationDuration: 350,
       animationEasing: 'cubicOut' as const,
       grid: { containLabel: true },
       tooltip: {
@@ -70,13 +75,13 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
         pageButtonItemGap: 5,
         pageButtonGap: 8,
         pageButtonPosition: 'end',
-        pageIconColor: CHART_THEME.textColor ?? '#A0AEC0',
+        pageIconColor: '#c9c9c9',
         pageIconInactiveColor: '#3A4060',
         pageIconSize: 12,
         pageTextStyle: {
-          color: CHART_THEME.textColor ?? '#A0AEC0',
+          color: '#c9c9c9',
           fontSize: 10,
-          fontFamily: 'IBM Plex Sans',
+          fontFamily: 'Roboto',
         },
         itemWidth: 8,
         itemHeight: 8,
@@ -85,14 +90,14 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
         // Desabilita show/hide nativo — controle fica no store
         selectedMode: false,
         textStyle: {
-          color: CHART_THEME.textColor,
-          fontSize: 11,
-          fontFamily: 'IBM Plex Sans',
+          color: '#c9c9c9',
+          fontSize: 12,
+          fontFamily: 'Roboto',
           rich: {
             dim: {
               color: '#3A4060',
-              fontSize: 11,
-              fontFamily: 'IBM Plex Sans',
+              fontSize: 12,
+              fontFamily: 'Roboto',
             },
           },
         },
@@ -123,17 +128,17 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
           rich: {
             value: {
               color: filtros.grupos.length > 0 ? '#00D4AA' : '#E8EAF0',
-              fontSize: 13,
+              fontSize: 16,
               fontWeight: '600',
-              fontFamily: 'Barlow Condensed',
-              lineHeight: 20,
+              fontFamily: 'Roboto',
+              lineHeight: 24,
               align: 'center',
             },
             sub: {
-              color: '#8892B0',
-              fontSize: 9,
-              fontFamily: 'IBM Plex Sans',
-              lineHeight: 14,
+              color: '#c6c6c6',
+              fontSize: 14,
+              fontFamily: 'Roboto',
+              lineHeight: 17,
               align: 'center',
             },
           },
@@ -182,7 +187,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       animationDelay={50}
       clickable
       onChartClick={(params) => {
-        const item = items[params.dataIndex]
+        const item = items.find(d => d.grupoNome === params.name)
         if (item) toggleGrupo(item.grupoId)
       }}
       onChartHover={handleHover}

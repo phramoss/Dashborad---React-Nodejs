@@ -109,10 +109,10 @@ export const MultiSelect = memo(function MultiSelect({
             : 'border-surface-border bg-surface-light text-text-secondary hover:border-surface-border/80 hover:text-text-primary',
         )}
       >
-        <span className="text-text-muted text-[10px] uppercase tracking-wider shrink-0">
+        <span className="text-text-muted text-[11.5px] uppercase tracking-wider shrink-0">
           {label}
         </span>
-        <span className={cn('flex-1 text-left truncate', hasSelection && 'text-brand font-medium')}>
+        <span className={cn('flex-1 text-left truncate text-[13.5px]', hasSelection && 'text-brand font-medium')}>
           {loading ? '...' : triggerLabel()}
         </span>
         {hasSelection ? (
@@ -142,7 +142,7 @@ export const MultiSelect = memo(function MultiSelect({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar..."
-              className="flex-1 bg-transparent text-xs text-text-primary placeholder:text-text-muted outline-none"
+              className="flex-1 bg-transparent text-[13.5px] text-text-primary placeholder:text-text-muted outline-none"
             />
             {search && (
               <button onClick={() => setSearch('')}>
@@ -154,7 +154,7 @@ export const MultiSelect = memo(function MultiSelect({
           {/* Options list */}
           <div className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-text-muted text-center">
+              <p className="px-3 py-3 text-[13.5px] text-text-muted text-center">
                 Nenhum resultado
               </p>
             ) : (
@@ -165,7 +165,7 @@ export const MultiSelect = memo(function MultiSelect({
                     key={opt.id}
                     onClick={() => toggle(opt.id as number)}
                     className={cn(
-                      'flex items-center gap-2.5 w-full px-3 py-2 text-xs text-left',
+                      'flex items-center gap-2.5 w-full px-3 py-2 text-[13.5px] text-left',
                       'hover:bg-surface-light transition-colors',
                       isSelected && 'text-brand',
                     )}
@@ -190,12 +190,12 @@ export const MultiSelect = memo(function MultiSelect({
           {/* Footer */}
           {selected.length > 0 && (
             <div className="border-t border-surface-border px-3 py-2 flex items-center justify-between">
-              <span className="text-[10px] text-text-muted">
+              <span className="text-[11.5px] text-text-muted">
                 {selected.length} selecionado{selected.length > 1 ? 's' : ''}
               </span>
               <button
                 onClick={() => onChange([])}
-                className="text-[10px] text-status-danger/70 hover:text-status-danger"
+                className="text-[11.5px] text-status-danger/70 hover:text-status-danger"
               >
                 Limpar
               </button>

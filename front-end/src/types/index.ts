@@ -19,6 +19,7 @@ export interface KpiSummary {
 export interface FaturamentoPeriodo {
   periodo: string        
   faturamento: number
+  mesNumero?: number     // presente no retorno de /analytics/por-mes (1-12)
 }
 
 export interface FaturamentoCliente {
@@ -53,6 +54,7 @@ export type GranularidadePeriodo = 'ano' | 'mes'
 export interface FiltroDashboard {
   // Anos selecionados (convertidos para data_ini/data_fim ao chamar a API)
   anos: number[]
+  meses: number[]         // meses selecionados (1-12) — dimming visual + cross-filter
   clientes: number[]
   vendedores: number[]
   materiais: number[]
@@ -68,6 +70,7 @@ export interface ApiQueryParams {
   cod_vendedor?: string
   cod_ma?:       string
   cod_grp?:      string
+  meses?:        string   // "1,3,12" — filtro de meses (1-12)
   data_ini?:     string   // "YYYY-MM-DD"
   data_fim?:     string
   data_tipo?:    'emissao' | 'saida'

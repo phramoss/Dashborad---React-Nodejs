@@ -10,7 +10,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
   const { filtros, toggleMaterial, setHover, clearHover } = useFiltrosStore()
   const hover = useHover()
 
-  const items  = useMemo(() => (data ?? []).slice(0, 10), [data])
+  const items  = useMemo(() => (data ?? []), [data])
   const total  = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
   const isHoveredFromOther = hover.dimension !== null && hover.dimension !== 'material'
 
@@ -21,7 +21,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
     return {
       backgroundColor: 'transparent',
       animation: true,
-      animationDuration: 500,
+      animationDuration: 350,
       animationEasing: 'cubicOut' as const,
       tooltip: {
         trigger: 'axis',
@@ -52,7 +52,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
         inverse: true,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: CHART_THEME.textColor, fontSize: 10, fontFamily: 'IBM Plex Sans', width: 118, overflow: 'truncate' as const },
+        axisLabel: { color: '#c9c9c9', fontSize: 12, fontFamily: 'Roboto', width: 150, overflow: 'truncate' as const },
       },
       series: [{
         type: 'bar',
@@ -74,7 +74,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
         }),
         label: {
           show: true, position: 'right' as const,
-          color: CHART_THEME.textColor, fontSize: 10, fontFamily: 'IBM Plex Mono',
+          color: '#c9c9c9', fontSize: 13, fontFamily: 'Roboto',
           formatter: (p: { value: number }) => formatCurrency(p.value, true),
         },
       }],
@@ -87,6 +87,10 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
     if (item) setHover({ dimension: 'material', id: item.materialId })
   }, [items, setHover, clearHover])
 
+  const BAR_HEIGHT = 28
+  const chartInnerHeight = Math.max(items.length * BAR_HEIGHT + 8, 200)
+  const visibleHeight = 280
+
   return (
     <ChartContainer
       title="Top Materiais"
@@ -95,9 +99,10 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
       error={isError}
       empty={!isLoading && items.length === 0}
       onRetry={() => refetch()}
-      height={320}
+      height={chartInnerHeight}
+      maxVisibleHeight={visibleHeight}
       active={filtros.materiais.length > 0}
-      animationDelay={200}
+      animationDelay={100}
       clickable
       onChartClick={(params) => {
         const item = items[params.dataIndex]

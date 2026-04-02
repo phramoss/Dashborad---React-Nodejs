@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
@@ -6,16 +7,17 @@ import { ApiStatusBadge } from '@/components/ui/ApiStatusBadge'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 export function DashboardLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   return (
     <>
-      {/* Thin progress bar — fixed no topo */}
       <GlobalLoadingBar />
 
       <div className="flex h-screen w-screen overflow-hidden bg-surface-dark">
-        <Sidebar />
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <TopBar />
+          <TopBar onMenuClick={() => setSidebarOpen(true)} />
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-4">
             <ErrorBoundary>
@@ -25,7 +27,6 @@ export function DashboardLayout() {
         </div>
       </div>
 
-      {/* Status badge — canto inferior direito */}
       <ApiStatusBadge />
     </>
   )

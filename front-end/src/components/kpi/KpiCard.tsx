@@ -103,19 +103,19 @@ export const KpiCard = memo(function KpiCard({
 
   return (
     <Card className="flex flex-col gap-1 group hover:border-brand/20 transition-colors">
-      <p className="text-[10px] font-medium text-text-muted uppercase tracking-widest leading-none">
+      <p className="text-[10px] sm:text-[15px] font-medium text-text-muted uppercase tracking-widest leading-none">
         {title}
       </p>
 
       <div className="flex items-baseline gap-2 mt-1">
-        <span className={cn('font-display font-bold text-2xl leading-tight tabular-nums', accent)}>
+        <span className={cn('font-display font-bold text-1xl sm:text-3xl leading-tight tabular-nums', accent)}>
           {formatValue(animated, format)}
         </span>
         {variation !== undefined && <VariationBadge value={variation} />}
       </div>
 
       {subtitle && (
-        <p className="text-[10px] text-text-muted leading-none">{subtitle}</p>
+        <p className="text-[10px] sm:text-[12px] text-text-muted leading-none">{subtitle}</p>
       )}
 
       {secondaryValue !== undefined && (

@@ -39,7 +39,21 @@ export function toDrillParams(filtros: FiltroDashboard, ano: number): ApiQueryPa
     data_ini: `${ano}-01-01`,
     data_fim: `${ano}-12-31`,
     data_tipo: 'emissao',
-    // ✅ Mantém filtro de meses no drill-down
+    // Mantém filtro de meses para cross-filtering de outros componentes
     ...(filtros.meses.length > 0 ? { meses: filtros.meses.join(',') } : {}),
+  }
+}
+
+/**
+ * Params para o gráfico mensal (drill) — NÃO inclui meses.
+ * O gráfico sempre busca TODOS os meses do ano; a seleção de meses
+ * afeta apenas o dimming visual + cross-filtering de outros componentes.
+ */
+export function toDrillParamsChart(filtros: FiltroDashboard, ano: number): ApiQueryParams {
+  return {
+    ...toApiParams({ ...filtros, meses: [] }),
+    data_ini: `${ano}-01-01`,
+    data_fim: `${ano}-12-31`,
+    data_tipo: 'emissao',
   }
 }

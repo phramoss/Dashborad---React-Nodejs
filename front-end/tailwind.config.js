@@ -8,24 +8,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Design tokens inspired by the Power BI dark theme
         brand: {
-          DEFAULT: '#00D4AA',    // Teal/mint - primary accent
-          dark: '#00B894',
-          light: '#00FFCC',
-          muted: '#00D4AA33',
+          DEFAULT: '#00d4aa',
+          dark:    '#00bb91',
+          light:   '#14e8be',
+          muted:   '#00d4aa33',
         },
         surface: {
-          DEFAULT: '#1E2235',    // Card background
-          dark: '#161929',       // Page background
-          light: '#252B3F',      // Hover / elevated
-          border: '#2D3554',     // Borders
+          DEFAULT: '#1e2235',
+          dark:    '#161929',
+          light:   '#282c3f',
+          border:  '#2d3554',
         },
         text: {
-          primary: '#E8EAF0',
-          secondary: '#8892B0',
-          muted: '#4A5280',
+          primary:   '#c9c9c9',
+          secondary: '#c9c9c9',
+          muted:     '#c9c9c9',
         },
+        // ✅ Restaurado — usado nos KPIs e gráficos
         chart: {
           teal:    '#00D4AA',
           purple:  '#7B5EA7',
@@ -34,6 +34,7 @@ export default {
           pink:    '#E056A0',
           yellow:  '#F7DC6F',
         },
+        // ✅ Restaurado — usado nos badges de variação dos KPIs
         status: {
           success: '#00D4AA',
           warning: '#F5A623',
@@ -42,8 +43,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
-        mono: ['IBM Plex Mono', 'monospace'],
+        sans:    ['Roboto', 'system-ui', 'sans-serif'],
+        mono:    ['IBM Plex Mono', 'monospace'],
         display: ['Barlow Condensed', 'sans-serif'],
       },
       borderRadius: {

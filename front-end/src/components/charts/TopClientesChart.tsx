@@ -10,7 +10,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
   const { filtros, toggleCliente, setHover, clearHover } = useFiltrosStore()
   const hover = useHover()
 
-  const items = useMemo(() => (data ?? []).slice(0, 10), [data])
+  const items = useMemo(() => (data ?? []), [data])
   const total = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
 
   const isHoveredFromOther = hover.dimension !== null && hover.dimension !== 'cliente'
@@ -22,7 +22,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
     return {
       backgroundColor: 'transparent',
       animation: true,
-      animationDuration: 500,
+      animationDuration: 350,
       animationEasing: 'cubicOut' as const,
       tooltip: {
         trigger: 'axis',
@@ -53,7 +53,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
         inverse: true,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: CHART_THEME.textColor, fontSize: 10, fontFamily: 'IBM Plex Sans', width: 118, overflow: 'truncate' as const },
+        axisLabel: { color: '#c9c9c9', fontSize: 12, fontFamily: 'Roboto', width: 150, overflow: 'truncate' as const },
       },
       series: [{
         type: 'bar',
@@ -72,7 +72,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
         }),
         label: {
           show: true, position: 'right' as const,
-          color: CHART_THEME.textColor, fontSize: 10, fontFamily: 'IBM Plex Mono',
+          color: '#c9c9c9', fontSize: 13, fontFamily: 'Roboto',
           formatter: (p: { value: number }) => formatCurrency(p.value, true),
         },
       }],
@@ -85,6 +85,12 @@ export const TopClientesChart = memo(function TopClientesChart() {
     if (item) setHover({ dimension: 'cliente', id: item.clienteId })
   }, [items, setHover, clearHover])
 
+  // Altura total real do gráfico: 28px por barra
+  const BAR_HEIGHT = 28
+  const chartInnerHeight = Math.max(items.length * BAR_HEIGHT + 8, 200)
+  // Container visível limitado a 420px; o gráfico cresce e o div faz scroll
+  const visibleHeight = 280
+
   return (
     <ChartContainer
       title="Top Clientes"
@@ -93,7 +99,8 @@ export const TopClientesChart = memo(function TopClientesChart() {
       error={isError}
       empty={!isLoading && items.length === 0}
       onRetry={() => refetch()}
-      height={320}
+      height={chartInnerHeight}
+      maxVisibleHeight={visibleHeight}
       active={filtros.clientes.length > 0}
       animationDelay={100}
       clickable

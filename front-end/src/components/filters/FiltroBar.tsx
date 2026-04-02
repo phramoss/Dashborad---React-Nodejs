@@ -18,8 +18,8 @@ export const FiltroBar = memo(function FiltroBar() {
 
       {/* Icon */}
       <div className="flex items-center gap-1.5 text-text-muted">
-        <SlidersHorizontal size={13} />
-        <span className="text-[10px] uppercase tracking-widest font-medium">Filtros</span>
+        <SlidersHorizontal size ={10} sm:size={14} />
+        <span className="text-[10px] sm:text-[11.5px] uppercase tracking-widest font-medium">Filtros</span>
       </div>
 
       <div className="w-px h-5 bg-surface-border" />
@@ -62,14 +62,14 @@ export const FiltroBar = memo(function FiltroBar() {
       <div className="w-px h-5 bg-surface-border" />
 
       {/* Granularidade */}
-      <FiltroGranularidade />
+      {/*<FiltroGranularidade/>*/}
 
       {/* Reset — só aparece com filtros ativos */}
       {activeCount > 0 && (
         <button
           onClick={resetFiltros}
           className={cn(
-            'ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium',
+            'ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[8px] sm:text-[13.5px] font-medium',
             'text-status-danger/80 hover:text-status-danger',
             'bg-status-danger/5 hover:bg-status-danger/10',
             'border border-status-danger/20 hover:border-status-danger/40',

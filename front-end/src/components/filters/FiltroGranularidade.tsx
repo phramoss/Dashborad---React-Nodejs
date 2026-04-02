@@ -19,7 +19,7 @@ export const FiltroGranularidade = memo(function FiltroGranularidade() {
           key={opt.value}
           onClick={() => setGranularidade(opt.value)}
           className={cn(
-            'px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150',
+            'px-2.5 py-1 rounded-md text-[13.5px] font-medium transition-all duration-150',
             filtros.granularidade === opt.value
               ? 'bg-surface text-text-primary shadow-sm'
               : 'text-text-muted hover:text-text-secondary',
