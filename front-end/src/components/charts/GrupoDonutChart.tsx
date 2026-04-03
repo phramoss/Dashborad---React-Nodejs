@@ -2,7 +2,7 @@ import { memo, useMemo, useCallback } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ChartContainer, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoGrupo } from '@/hooks/useDashboardData'
-import { useFiltrosStore, useHover } from '@/store/filtros.store'
+import { useFiltrosStore } from '@/store/filtros.store'
 import { formatCurrency } from '@/lib/utils'
 
 const DONUT_PALETTE = ['#00D4AA', '#4A90D9', '#7B5EA7', '#F5A623', '#E056A0', '#F7DC6F']
@@ -13,8 +13,7 @@ function sanitizeName(name: string): string {
 
 export const GrupoDonutChart = memo(function GrupoDonutChart() {
   const { data, isLoading, isError, refetch } = useFaturamentoGrupo()
-  const { filtros, toggleGrupo, setHover, clearHover } = useFiltrosStore()
-  const hover = useHover()
+  const { filtros, toggleGrupo } = useFiltrosStore()
 
   const items = useMemo(() => {
     return (data ?? [])
@@ -27,6 +26,14 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       .filter(d => d.faturamento > 0)
   }, [data])
 
+  // FIX: Map para lookup O(1) dentro do formatter (hot path no hover)
+  // Antes: items.find() = O(n) a cada movimento do mouse sobre o gráfico
+  const itemsByName = useMemo(() => {
+    const m = new Map<string, typeof items[number]>()
+    items.forEach(d => m.set(d.grupoNome, d))
+    return m
+  }, [items])
+
   const total = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
 
   // Valor exibido no centro: soma dos selecionados, ou total geral se nenhum
@@ -36,8 +43,6 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       .filter(d => filtros.grupos.includes(d.grupoId))
       .reduce((s, d) => s + d.faturamento, 0)
   }, [items, filtros.grupos, total])
-
-  const isHoveredFromOther = hover.dimension !== null && hover.dimension !== 'grupo'
 
   const option = useMemo((): EChartsOption => {
     const activeIds = filtros.grupos
@@ -102,7 +107,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
           },
         },
         formatter: (name: string) => {
-          const item = items.find((d) => d.grupoNome === name)
+          const item = itemsByName.get(name)
           if (!item) return name
           const isActive = activeIds.length === 0 || activeIds.includes(item.grupoId)
           const pct = ((item.faturamento / total) * 100).toFixed(1)
@@ -143,36 +148,28 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
             },
           },
         },
-        emphasis: { scale: true, scaleSize: 6, label: { show: true } },
+        emphasis: { disabled: true, label: { show: true } },
         data: items.map((d, i) => {
           const isActive = activeIds.length === 0 || activeIds.includes(d.grupoId)
-          const isDimmed = !isActive || isHoveredFromOther
           const color    = DONUT_PALETTE[i % DONUT_PALETTE.length]
           return {
             name: d.grupoNome,
             value: d.faturamento,
             itemStyle: {
-              color: isDimmed ? `${color}25` : color,
-              borderWidth: 2,
-              borderColor: '#161929',
+              color: isActive ? color : `${color}25`,
+              borderWidth: 0,
             },
           }
         }),
       }],
       graphic: [],
     }
-  }, [items, filtros.grupos, total, totalExibido, isHoveredFromOther])
-
-  const handleHover = useCallback((params: { dataIndex: number } | null) => {
-    if (!params) { clearHover(); return }
-    const item = items[params.dataIndex]
-    if (item) setHover({ dimension: 'grupo', id: item.grupoId })
-  }, [items, setHover, clearHover])
+  }, [items, itemsByName, filtros.grupos, total, totalExibido])
 
   const handleLegendClick = useCallback((params: { name: string }) => {
-    const item = items.find(d => d.grupoNome === params.name)
+    const item = itemsByName.get(params.name)
     if (item) toggleGrupo(item.grupoId)
-  }, [items, toggleGrupo])
+  }, [itemsByName, toggleGrupo])
 
   return (
     <ChartContainer
@@ -187,10 +184,9 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       animationDelay={50}
       clickable
       onChartClick={(params) => {
-        const item = items.find(d => d.grupoNome === params.name)
+        const item = itemsByName.get(params.name)
         if (item) toggleGrupo(item.grupoId)
       }}
-      onChartHover={handleHover}
       onLegendClick={handleLegendClick}
     />
   )

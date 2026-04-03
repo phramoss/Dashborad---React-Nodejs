@@ -1,21 +1,14 @@
 /**
- * sqlFilters.js — helpers para construir WHERE dinâmico no Firebird
+ * sqlFilters.js
  *
- * Suporta:
- *   addEqFilter    → campo = ?          (valor único)
- *   addInFilter    → campo IN (?,?,?)   (array de valores)
- *   addDateRange   → campo BETWEEN ? AND ?
- *   addMonthFilter → EXTRACT(MONTH FROM campo) IN (?,?,?)
+ * Helpers para construir cláusulas WHERE dinâmicas no Firebird.
+ *
+ * ADIÇÃO: buildFiltersForAlias(qs, tableAlias)
+ *   Constrói os filtros já com alias de tabela, evitando a substituição
+ *   regex frágil que existia nos endpoints com JOIN (top-materiais,
+ *   por-grupo, mapa-faturamento).
  */
 
-/**
- * Filtro de igualdade simples.
- * @param {string[]} where  array de cláusulas
- * @param {any[]}    params array de parâmetros
- * @param {string}   field  nome do campo SQL
- * @param {any}      value  valor recebido do query string
- * @param {Function} cast   Number | String
- */
 function addEqFilter(where, params, field, value, cast) {
   if (value === undefined || value === null || value === '') return
   where.push(`${field} = ?`)
@@ -23,19 +16,12 @@ function addEqFilter(where, params, field, value, cast) {
 }
 
 /**
- * Filtro IN — aceita string "1,2,3" ou array [1,2,3].
- * Se só vier um valor, cai em igualdade simples (mais eficiente no Firebird).
- *
- * @param {string[]} where
- * @param {any[]}    params
- * @param {string}   field
- * @param {any}      value   "1,2,3"  |  "5"  |  undefined
- * @param {Function} cast    Number | String
+ * Filtro IN — aceita "1,2,3" ou array.
+ * Se vier só um valor, usa igualdade simples (mais eficiente no Firebird).
  */
 function addInFilter(where, params, field, value, cast) {
   if (value === undefined || value === null || value === '') return
 
-  // Normaliza para array
   const raw = Array.isArray(value) ? value : String(value).split(',')
   const ids = raw
     .map(v => v.toString().trim())
@@ -55,21 +41,12 @@ function addInFilter(where, params, field, value, cast) {
   params.push(...ids)
 }
 
-/**
- * Filtro de intervalo de data.
- * @param {string[]} where
- * @param {any[]}    params
- * @param {string}   field     campo da data (ex: "FAT.DATA_EMISAO")
- * @param {string}   data_ini  "YYYY-MM-DD"
- * @param {string}   data_fim  "YYYY-MM-DD"
- */
 function addDateRange(where, params, field, data_ini, data_fim) {
   if (data_ini) {
     where.push(`${field} >= ?`)
     params.push(new Date(data_ini))
   }
   if (data_fim) {
-    // Inclui o dia inteiro
     const fim = new Date(data_fim)
     fim.setHours(23, 59, 59, 999)
     where.push(`${field} <= ?`)
@@ -77,15 +54,6 @@ function addDateRange(where, params, field, data_ini, data_fim) {
   }
 }
 
-/**
- * Filtro de mês — aceita string "1,2,3" ou array [1,2,3] (meses 1-12).
- * Gera: EXTRACT(MONTH FROM campo) IN (?, ?, ?)
- *
- * @param {string[]} where
- * @param {any[]}    params
- * @param {string}   dateField  campo da data (ex: "DATA_EMISAO")
- * @param {any}      value      "1,3,12" | "6" | undefined
- */
 function addMonthFilter(where, params, dateField, value) {
   if (value === undefined || value === null || value === '') return
 
@@ -109,4 +77,61 @@ function addMonthFilter(where, params, dateField, value) {
   params.push(...meses)
 }
 
-module.exports = { addEqFilter, addInFilter, addDateRange, addMonthFilter }
+/**
+ * buildFiltersForAlias
+ *
+ * Versão dos filtros já prefixada com alias de tabela.
+ * Use nos endpoints que fazem JOIN (top-materiais, por-grupo, mapa-faturamento).
+ *
+ * Evita a substituição via regex nos WHERE strings, que é frágil
+ * (ex: cliente chamado "COD_CLIENTE LTDA" quebraria o replace).
+ *
+ * @param {object} qs          req.query
+ * @param {string} alias       alias da tabela BI_FATURAMENTO no JOIN (ex: "FAT")
+ * @returns {{ where: string[], params: any[], campoData: string }}
+ */
+function buildFiltersForAlias(qs, alias) {
+  const {
+    cod_cliente,
+    cod_vendedor,
+    cod_ma,
+    cod_grp,
+    mercado,
+    pais,
+    uf,
+    meses,
+    data_ini,
+    data_fim,
+    data_tipo,
+  } = qs
+
+  const A = alias ? `${alias}.` : ''
+  const where = []
+  const params = []
+
+  addInFilter(where, params, `${A}COD_CLIENTE`,  cod_cliente,  Number)
+  addInFilter(where, params, `${A}COD_VENDEDOR`, cod_vendedor, Number)
+  addInFilter(where, params, `${A}COD_MA`,       cod_ma,       Number)
+  addInFilter(where, params, `${A}COD_GRP`,      cod_grp,      Number)
+  addInFilter(where, params, `${A}MERCADO`,      mercado,      String)
+  addInFilter(where, params, `${A}PAIS`,         pais,         String)
+  addInFilter(where, params, `${A}UF`,           uf,           String)
+
+  const campoData =
+    String(data_tipo || 'emissao').toLowerCase() === 'saida'
+      ? `${A}DATA_SAIDA`
+      : `${A}DATA_EMISAO`
+
+  addDateRange(where, params, campoData, data_ini, data_fim)
+  addMonthFilter(where, params, campoData, meses)
+
+  return { where, params, campoData }
+}
+
+module.exports = {
+  addEqFilter,
+  addInFilter,
+  addDateRange,
+  addMonthFilter,
+  buildFiltersForAlias,
+}

@@ -20,23 +20,43 @@ interface KpiCardProps {
 }
 
 // ─── Animated counter hook ────────────────────────────────────
-function useCountUp(target: number, duration = 900, delay = 0) {
-  const [current, setCurrent] = useState(0)
-  const frameRef = useRef<number>(0)
+// Anima do VALOR ANTERIOR para o novo valor (não do zero),
+// evitando o reset jarring a cada troca de filtro.
+function useCountUp(target: number, duration = 700, delay = 0) {
+  const [current, setCurrent] = useState(target)
+  const frameRef  = useRef<number>(0)
+  const fromRef   = useRef<number>(target)
+  const firstRun  = useRef(true)
 
   useEffect(() => {
+    // Na primeira montagem, exibe direto sem animação
+    if (firstRun.current) {
+      firstRun.current = false
+      fromRef.current  = target
+      setCurrent(target)
+      return
+    }
+
+    const from = fromRef.current
+    // Sem mudança — não anima
+    if (from === target) return
+
     let start: number | null = null
-    const from = 0
+    cancelAnimationFrame(frameRef.current)
 
     const delayTimer = setTimeout(() => {
       const step = (timestamp: number) => {
         if (!start) start = timestamp
         const elapsed  = timestamp - start
         const progress = Math.min(elapsed / duration, 1)
-        // Ease-out cubic
-        const eased = 1 - Math.pow(1 - progress, 3)
-        setCurrent(from + (target - from) * eased)
-        if (progress < 1) frameRef.current = requestAnimationFrame(step)
+        const eased    = 1 - Math.pow(1 - progress, 3)
+        const value    = from + (target - from) * eased
+        setCurrent(value)
+        if (progress < 1) {
+          frameRef.current = requestAnimationFrame(step)
+        } else {
+          fromRef.current = target
+        }
       }
       frameRef.current = requestAnimationFrame(step)
     }, delay)
@@ -66,12 +86,14 @@ function VariationBadge({ value }: { value: number }) {
 
   return (
     <span className={cn(
-      'inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border',
+      // shrink-0 garante que a badge nao vai ser comprimida pelo valor
+      'inline-flex items-center gap-0.5 font-semibold px-1 py-0.5 rounded-md border whitespace-nowrap shrink-0',
+      'text-[9px] sm:text-[10px]',
       isZero && 'text-text-secondary bg-surface-light border-surface-border',
       isPos  && 'text-status-success bg-status-success/10 border-status-success/20',
       !isPos && !isZero && 'text-status-danger bg-status-danger/10 border-status-danger/20',
     )}>
-      <Icon size={9} strokeWidth={2.5} />
+      <Icon size={8} strokeWidth={2.5} />
       {formatPercent(Math.abs(value))}
     </span>
   )
@@ -102,26 +124,46 @@ export const KpiCard = memo(function KpiCard({
   }
 
   return (
-    <Card className="flex flex-col gap-1 group hover:border-brand/20 transition-colors">
-      <p className="text-[10px] sm:text-[15px] font-medium text-text-muted uppercase tracking-widest leading-none">
+    <Card className="flex flex-col gap-1 group hover:border-brand/20 transition-colors overflow-hidden">
+      {/* Titulo */}
+      <p className="text-[9px] sm:text-[11px] font-medium text-text-muted uppercase tracking-widest leading-tight truncate">
         {title}
       </p>
 
-      <div className="flex items-baseline gap-2 mt-1">
-        <span className={cn('font-display font-bold text-1xl sm:text-3xl leading-tight tabular-nums', accent)}>
+      {/*
+        Valor + badge de variacao.
+        - overflow-hidden no container: impede que qualquer filho vaze o card.
+        - flex-1 + truncate no valor: o numero se comprime antes de vazar.
+        - shrink-0 + self-start na badge: a porcentagem nunca e comprimida e
+          fica alinhada ao topo (evita desalinhamento com texto grande).
+      */}
+      <div className="flex items-center gap-1.5 mt-1 min-w-0 overflow-hidden">
+        <span
+          className={cn(
+            'font-display font-bold leading-tight tabular-nums',
+            'text-lg sm:text-2xl lg:text-3xl',
+            'truncate min-w-0 flex-1',
+            accent,
+          )}
+        >
           {formatValue(animated, format)}
         </span>
-        {variation !== undefined && <VariationBadge value={variation} />}
+
+        {variation !== undefined && (
+          <span className="shrink-0 self-start mt-0.5">
+            <VariationBadge value={variation} />
+          </span>
+        )}
       </div>
 
       {subtitle && (
-        <p className="text-[10px] sm:text-[12px] text-text-muted leading-none">{subtitle}</p>
+        <p className="text-[9px] sm:text-[12px] text-text-muted leading-none truncate">{subtitle}</p>
       )}
 
       {secondaryValue !== undefined && (
-        <div className="flex items-center gap-1 mt-1 pt-1.5 border-t border-surface-border/40">
-          <span className="text-[10px] text-text-muted">{secondaryLabel}</span>
-          <span className="text-[10px] font-mono font-medium text-text-secondary ml-auto">
+        <div className="flex items-center gap-1 mt-1 pt-1.5 border-t border-surface-border/40 min-w-0 overflow-hidden">
+          <span className="text-[10px] text-text-muted truncate">{secondaryLabel}</span>
+          <span className="text-[10px] font-mono font-medium text-text-secondary ml-auto shrink-0">
             {formatValue(secondaryValue, format)}
           </span>
         </div>

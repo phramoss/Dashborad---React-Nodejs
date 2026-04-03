@@ -260,10 +260,10 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
                       colorStops: [{ offset: 0, color: '#00FFCC' }, { offset: 1, color: barColor }] }
                   : { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
                       colorStops: [{ offset: 0, color: `${barColor}CC` }, { offset: 1, color: `${barColor}66` }] },
-                shadowBlur: isSelected ? 10 : 0,
-                shadowColor: isSelected ? `${barColor}60` : 'transparent',
+                shadowBlur: 0,
+                shadowColor: 'transparent',
               },
-              emphasis: { itemStyle: { color: barColor, shadowBlur: 12, shadowColor: `${barColor}50` } },
+              emphasis: { disabled: true },
             }
           }),
           label: {

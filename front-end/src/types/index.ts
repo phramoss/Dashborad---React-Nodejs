@@ -46,6 +46,16 @@ export interface FaturamentoVendedor {
   faturamento: number
 }
 
+export interface MapaMunicipio {
+  geocodigo: string
+  municipio: string
+  uf: string
+  lat: number
+  lng: number
+  faturamento: number
+  numClientes: number
+}
+
 // ============================================================
 // Filtros — o que o Zustand guarda
 // ============================================================

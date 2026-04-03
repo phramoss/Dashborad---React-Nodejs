@@ -9,7 +9,7 @@ interface KpiRowProps {
 
 export const KpiRow = memo(function KpiRow({ data, loading }: KpiRowProps) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       <KpiCard
         title="Faturamento"
         value={data?.faturamento ?? 0}

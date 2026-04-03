@@ -124,13 +124,12 @@ export const ChartContainer = memo(function ChartContainer({
   const visible = useStaggerReveal(animationDelay)
   const [isHovered, setIsHovered] = useState(false)
 
-  // ── Padrão ref-callback: handleClick com deps [] (jamais recriado)
-  // Problema: onChartClick é arrow inline → muda referência a cada render →
-  // handleClick com [onChartClick] como dep também muda → ECharts faz off/on
-  // do listener → click dispara no handler antigo E no novo (duplicata).
-  // Solução: guardar o callback num ref e expor um wrapper estável ([] deps).
-  const onClickRef = useRef(onChartClick)
-  useEffect(() => { onClickRef.current = onChartClick }, [onChartClick])
+  const onClickRef  = useRef(onChartClick)
+  const onHoverRef  = useRef(onChartHover)
+  const onLegendRef = useRef(onLegendClick)
+  useEffect(() => { onClickRef.current  = onChartClick  }, [onChartClick])
+  useEffect(() => { onHoverRef.current  = onChartHover  }, [onChartHover])
+  useEffect(() => { onLegendRef.current = onLegendClick }, [onLegendClick])
 
   const lastClickRef = useRef<{ key: string; ts: number } | null>(null)
   const handleClick = useCallback((p: unknown) => {
@@ -142,15 +141,26 @@ export const ChartContainer = memo(function ChartContainer({
     lastClickRef.current = { key, ts: now }
     onClickRef.current(params)
   }, []) // [] → função estável → ECharts nunca re-registra → zero duplicatas
-  const handleMouseover   = useCallback((p: unknown) => onChartHover?.(p as ChartClickParams), [onChartHover])
-  const handleMouseout    = useCallback(() => onChartHover?.(null), [onChartHover])
-  const handleLegendClick = useCallback((p: unknown) => onLegendClick?.(p as { name: string }), [onLegendClick])
+  const handleMouseover   = useCallback((p: unknown) => onHoverRef.current?.(p as ChartClickParams), [])
+  const handleMouseout    = useCallback(() => onHoverRef.current?.(null), [])
+  const handleLegendClick = useCallback((p: unknown) => onLegendRef.current?.(p as { name: string }), [])
 
-  const events: Record<string, (p: unknown) => void> = {}
-  if (onChartClick)   events['click']               = handleClick
-  if (onChartHover)   events['mouseover']            = handleMouseover
-  if (onChartHover)   events['mouseout']             = handleMouseout
-  if (onLegendClick)  events['legendselectchanged']  = handleLegendClick
+  // Objeto de eventos estável — recriado apenas quando o CONJUNTO de handlers muda
+  const hasClick  = !!onChartClick
+  const hasHover  = !!onChartHover
+  const hasLegend = !!onLegendClick
+  const eventsRef = useRef<Record<string, (p: unknown) => void>>({})
+  useEffect(() => {
+    const next: Record<string, (p: unknown) => void> = {}
+    if (hasClick)  next['click']              = handleClick
+    if (hasHover)  next['mouseover']          = handleMouseover
+    if (hasHover)  next['mouseout']           = handleMouseout
+    if (hasLegend) next['legendselectchanged'] = handleLegendClick
+    eventsRef.current = next
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasClick, hasHover, hasLegend])
+
+  const events = eventsRef.current
 
   if (loading) return <SkeletonChart className={cn('h-full', className)} />
 

@@ -14,7 +14,7 @@ import { toApiParams, toDrillParams, toDrillParamsChart } from './params-adapter
 import type {
   KpiSummary, FaturamentoPeriodo, FaturamentoCliente,
   FaturamentoMaterial, FaturamentoGrupo, FaturamentoVendedor,
-  FiltroDashboard,
+  MapaMunicipio, FiltroDashboard,
 } from '@/types'
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -295,5 +295,31 @@ export async function fetchFaturamentoTodosMeses(f: FiltroDashboard): Promise<(F
         ano:         v.ano,
         mesIdx:      v.mesIdx,
       }))
+  }
+}
+// ─── Mapa de Faturamento por Município ────────────────────────
+export async function fetchMapaFaturamento(f: FiltroDashboard): Promise<MapaMunicipio[]> {
+  try {
+    return await request<MapaMunicipio[]>({
+      method: 'GET',
+      url: '/analytics/mapa-faturamento',
+      params: toApiParams(f),
+    })
+  } catch (err) {
+    if (!is404(err)) throw err
+    return []
+  }
+}
+
+// ─── Última atualização dos dados ─────────────────────────────
+export async function fetchUltimaAtualizacao(): Promise<string | null> {
+  try {
+    const data = await request<{ ultimaAtualizacao: string | null }>({
+      method: 'GET',
+      url: '/analytics/ultima-atualizacao',
+    })
+    return data.ultimaAtualizacao
+  } catch {
+    return null
   }
 }

@@ -32,8 +32,9 @@
 
   /* Smooth transitions for all interactive elements */
   button, a { @apply outline-none; }
+  /* Focus-visible: estilo mínimo apenas para acessibilidade via teclado */
   button:focus-visible, a:focus-visible {
-    @apply ring-2 ring-brand/50 ring-offset-2 ring-offset-surface-dark rounded-lg;
+    @apply outline-none;
   }
 }
 
@@ -53,11 +54,9 @@
     background-clip: text;
   }
 
-  /* Card shadow */
+  /* Card base shadow — subtle, no glow */
   .card-glow {
-    box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.4),
-      0 0 0 1px rgba(45, 53, 84, 0.6);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   }
 
   /* ECharts cursor */

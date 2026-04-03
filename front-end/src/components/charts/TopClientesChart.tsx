@@ -1,19 +1,16 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoCliente } from '@/hooks/useDashboardData'
-import { useFiltrosStore, useHover } from '@/store/filtros.store'
+import { useFiltrosStore } from '@/store/filtros.store'
 import { formatCurrency, truncate } from '@/lib/utils'
 
 export const TopClientesChart = memo(function TopClientesChart() {
   const { data, isLoading, isError, refetch } = useFaturamentoCliente()
-  const { filtros, toggleCliente, setHover, clearHover } = useFiltrosStore()
-  const hover = useHover()
+  const { filtros, toggleCliente } = useFiltrosStore()
 
   const items = useMemo(() => (data ?? []), [data])
   const total = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
-
-  const isHoveredFromOther = hover.dimension !== null && hover.dimension !== 'cliente'
 
   const option = useMemo((): EChartsOption => {
     const activeIds = filtros.clientes
@@ -59,15 +56,14 @@ export const TopClientesChart = memo(function TopClientesChart() {
         type: 'bar',
         barMaxWidth: 14,
         data: items.map((d) => {
-          const isActive   = activeIds.length === 0 || activeIds.includes(d.clienteId)
-          const isDimmed   = !isActive || isHoveredFromOther
+          const isActive = activeIds.length === 0 || activeIds.includes(d.clienteId)
           return {
             value: d.faturamento,
             itemStyle: {
               borderRadius: [0, 3, 3, 0],
-              color: isDimmed ? `${CHART_COLORS.teal}28` : CHART_COLORS.teal,
+              color: isActive ? CHART_COLORS.teal : `${CHART_COLORS.teal}28`,
             },
-            emphasis: { itemStyle: { color: CHART_COLORS.teal, shadowBlur: 8, shadowColor: `${CHART_COLORS.teal}50` } },
+            emphasis: { disabled: true },
           }
         }),
         label: {
@@ -77,13 +73,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
         },
       }],
     }
-  }, [items, filtros.clientes, total, isHoveredFromOther])
-
-  const handleHover = useCallback((params: { dataIndex: number } | null) => {
-    if (!params) { clearHover(); return }
-    const item = items[params.dataIndex]
-    if (item) setHover({ dimension: 'cliente', id: item.clienteId })
-  }, [items, setHover, clearHover])
+  }, [items, filtros.clientes, total])
 
   // Altura total real do gráfico: 28px por barra
   const BAR_HEIGHT = 28
@@ -93,7 +83,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
 
   return (
     <ChartContainer
-      title="Top Clientes"
+      title="Faturamento por Clientes"
       option={option}
       loading={isLoading}
       error={isError}
@@ -108,7 +98,6 @@ export const TopClientesChart = memo(function TopClientesChart() {
         const item = items[params.dataIndex]
         if (item) toggleCliente(item.clienteId)
       }}
-      onChartHover={handleHover}
     />
   )
 })

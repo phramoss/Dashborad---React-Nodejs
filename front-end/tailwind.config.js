@@ -53,7 +53,7 @@ export default {
       },
       boxShadow: {
         card: '0 4px 24px rgba(0,0,0,0.35)',
-        glow: '0 0 20px rgba(0, 212, 170, 0.15)',
+        glow: 'none',
       },
     },
   },

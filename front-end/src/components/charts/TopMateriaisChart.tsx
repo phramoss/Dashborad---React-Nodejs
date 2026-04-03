@@ -1,18 +1,16 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoMaterial } from '@/hooks/useDashboardData'
-import { useFiltrosStore, useHover } from '@/store/filtros.store'
+import { useFiltrosStore } from '@/store/filtros.store'
 import { formatCurrency, truncate } from '@/lib/utils'
 
 export const TopMateriaisChart = memo(function TopMateriaisChart() {
   const { data, isLoading, isError, refetch } = useFaturamentoMaterial()
-  const { filtros, toggleMaterial, setHover, clearHover } = useFiltrosStore()
-  const hover = useHover()
+  const { filtros, toggleMaterial } = useFiltrosStore()
 
   const items  = useMemo(() => (data ?? []), [data])
   const total  = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
-  const isHoveredFromOther = hover.dimension !== null && hover.dimension !== 'material'
 
   const option = useMemo((): EChartsOption => {
     const activeIds = filtros.materiais
@@ -59,17 +57,16 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
         barMaxWidth: 14,
         data: items.map((d) => {
           const isActive = activeIds.length === 0 || activeIds.includes(d.materialId)
-          const isDimmed = !isActive || isHoveredFromOther
           return {
             value: d.faturamento,
             itemStyle: {
               borderRadius: [0, 3, 3, 0],
-              color: isDimmed ? `${CHART_COLORS.blue}28` : {
+              color: isActive ? {
                 type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
                 colorStops: [{ offset: 0, color: `${CHART_COLORS.blue}88` }, { offset: 1, color: CHART_COLORS.blue }],
-              },
+              } : `${CHART_COLORS.blue}28`,
             },
-            emphasis: { itemStyle: { color: CHART_COLORS.blue, shadowBlur: 8, shadowColor: `${CHART_COLORS.blue}50` } },
+            emphasis: { disabled: true },
           }
         }),
         label: {
@@ -79,13 +76,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
         },
       }],
     }
-  }, [items, filtros.materiais, total, isHoveredFromOther])
-
-  const handleHover = useCallback((params: { dataIndex: number } | null) => {
-    if (!params) { clearHover(); return }
-    const item = items[params.dataIndex]
-    if (item) setHover({ dimension: 'material', id: item.materialId })
-  }, [items, setHover, clearHover])
+  }, [items, filtros.materiais, total])
 
   const BAR_HEIGHT = 28
   const chartInnerHeight = Math.max(items.length * BAR_HEIGHT + 8, 200)
@@ -93,7 +84,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
 
   return (
     <ChartContainer
-      title="Top Materiais"
+      title="Faturamento por Materiais"
       option={option}
       loading={isLoading}
       error={isError}
@@ -108,7 +99,6 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
         const item = items[params.dataIndex]
         if (item) toggleMaterial(item.materialId)
       }}
-      onChartHover={handleHover}
     />
   )
 })

@@ -9,6 +9,8 @@ import {
   fetchPorGrupo,
   fetchTopVendedores,
   fetchFaturamentoTodosMeses,
+  fetchMapaFaturamento,
+  fetchUltimaAtualizacao,
 } from '@/services/dashboard.service'
 
 const BASE = {
@@ -105,5 +107,23 @@ export function useFaturamentoTodosMeses(enabled: boolean) {
     queryKey: ['todos-meses', f.anos, f.clientes, f.vendedores, f.materiais, f.grupos],
     queryFn:  () => fetchFaturamentoTodosMeses(f),
     enabled,
+  })
+}
+export function useMapaFaturamento() {
+  const f = useDebouncedFiltros()
+  return useQuery({
+    ...BASE,
+    queryKey: ['mapa', f.anos, f.meses, f.clientes, f.vendedores, f.materiais, f.grupos],
+    queryFn: () => fetchMapaFaturamento(f),
+  })
+}
+
+export function useUltimaAtualizacao() {
+  return useQuery({
+    queryKey: ['ultima-atualizacao'],
+    queryFn: fetchUltimaAtualizacao,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
   })
 }
