@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart2, TrendingUp, Users, Package, Settings, LogOut, X } from 'lucide-react'
+import { BarChart2, TrendingUp, Users, Package, Layers, Settings, LogOut, X } from 'lucide-react'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { to: '/visao-geral', icon: BarChart2,  label: 'Visão Geral'  },
+  { to: '/estoque',     icon: Layers,     label: 'Estoque'       },
   { to: '/tendencias',  icon: TrendingUp, label: 'Tendências'   },
   { to: '/clientes',    icon: Users,      label: 'Clientes'      },
   { to: '/produtos',    icon: Package,    label: 'Produtos'      },

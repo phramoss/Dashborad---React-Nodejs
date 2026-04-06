@@ -108,6 +108,60 @@ export interface FiltrosDisponiveis {
 }
 
 // ============================================================
+// Estoque — tipos de domínio
+// ============================================================
+
+export interface EstoqueKpi {
+  custoTotal: number
+  totalM2:    number
+  qtdM2:      number
+  totalM3:    number
+  qtdM3:      number
+  cavaletes:  number
+}
+
+export interface EstoqueTableRow {
+  codMa:    number
+  material: string
+  metragem: number
+  pc:       number
+}
+
+export interface EstoqueTableResult {
+  rows:   EstoqueTableRow[]
+  totais: { metragem: number; pc: number }
+}
+
+export interface EstoqueMatrizRow {
+  codMa:      number
+  material:   string
+  ano:        number
+  mes:        number
+  quantidade: number
+  total:      number
+}
+
+export interface EstoqueFiltrosDisponiveis {
+  empresas:    number[]
+  materiais:   { id: number; label: string }[]
+  blocos:      number[]
+  espessuras:  number[]
+  composicoes: string[]
+}
+
+export interface EstoqueFiltros {
+  empresas:        number[]
+  materiais:       number[]
+  blocos:          number[]
+  espessuras:      number[]
+  industrializacao: string[]
+  situacao:        string[]
+  data_ini:        string
+  data_fim:        string
+  materialFiltro:  number | null   // crossfilter por clique na tabela
+}
+
+// ============================================================
 // Auth / Erros
 // ============================================================
 export interface Usuario {

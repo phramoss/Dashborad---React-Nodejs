@@ -24,12 +24,14 @@ const faturamentoRoutes = require('./routes/faturamento') // /api/faturamento
 const clientesRoutes   = require('./routes/clientes')     // /api/clientes
 const filtrosRoutes    = require('./routes/filtros')      // /api/filtros/*
 const usuariosRoutes   = require('./routes/usuarios')     // /api/usuarios/*
+const estoqueRoutes    = require('./routes/estoque')      // /api/estoque/*
 
 app.use('/api', analyticsRoutes)
 app.use('/api', faturamentoRoutes)
 app.use('/api', clientesRoutes)
 app.use('/api', filtrosRoutes)
 app.use('/api/usuarios', usuariosRoutes)
+app.use('/api', estoqueRoutes)
 
 // ─── Error handler global ─────────────────────────────────────
 app.use((err, req, res, next) => {
