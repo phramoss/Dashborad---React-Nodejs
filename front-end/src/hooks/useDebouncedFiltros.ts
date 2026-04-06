@@ -18,6 +18,16 @@ function shallowEqualFiltros(a: FiltroDashboard, b: FiltroDashboard): boolean {
       if (arrA[i] !== arrB[i]) return false
     }
   }
+  // UFs são string[]
+  if (a.ufs.length !== b.ufs.length) return false
+  for (let i = 0; i < a.ufs.length; i++) {
+    if (a.ufs[i] !== b.ufs[i]) return false
+  }
+  // Municípios são string[]
+  if (a.municipios.length !== b.municipios.length) return false
+  for (let i = 0; i < a.municipios.length; i++) {
+    if (a.municipios[i] !== b.municipios[i]) return false
+  }
   return true
 }
 

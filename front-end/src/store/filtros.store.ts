@@ -39,11 +39,23 @@ interface FiltrosState {
   toggleMaterial: (id: number) => void
   toggleGrupo: (id: number) => void
 
+  // Toggle UF (mapa click-filter)
+  toggleUf: (uf: string) => void
+
+  // Toggle Município (mapa click-filter)
+  toggleMunicipio: (municipio: string) => void
+
   // Set batch
   setClientes: (ids: number[]) => void
   setVendedores: (ids: number[]) => void
   setMateriais: (ids: number[]) => void
   setGrupos: (ids: number[]) => void
+  setUfs: (ufs: string[]) => void
+  setMunicipios: (municipios: string[]) => void
+
+  // Toggle UF+Município juntos (mapa click-filter)
+  toggleMapaLocal: (uf: string, municipio: string) => void
+  clearMapaFilter: () => void
 
   // Hover cross-highlight
   setHover: (hover: HoverState) => void
@@ -61,7 +73,7 @@ interface FiltrosState {
 
 const DEFAULT_FILTROS: FiltroDashboard = {
   anos: [], meses: [], clientes: [], vendedores: [],
-  materiais: [], grupos: [], granularidade: 'ano',
+  materiais: [], grupos: [], ufs: [], municipios: [], granularidade: 'ano',
 }
 
 const DEFAULT_HOVER: HoverState = { dimension: null, id: null }
@@ -70,11 +82,15 @@ const DEFAULT_DRILL: DrillState = { active: false, mode: 'none', ano: null, labe
 function countActive(f: FiltroDashboard, drill: DrillState): number {
   const anos  = drill.active ? 0 : f.anos.length
   const meses = drill.active ? 0 : f.meses.length
-  return anos + meses + f.clientes.length + f.vendedores.length + f.materiais.length + f.grupos.length
+  return anos + meses + f.clientes.length + f.vendedores.length + f.materiais.length + f.grupos.length + f.ufs.length + f.municipios.length
 }
 
 function toggle(arr: number[], id: number): number[] {
   return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]
+}
+
+function toggleStr(arr: string[], val: string): string[] {
+  return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]
 }
 
 export const useFiltrosStore = create<FiltrosState>()(
@@ -125,6 +141,51 @@ export const useFiltrosStore = create<FiltrosState>()(
           return { filtros, activeCount: countActive(filtros, s.drill) }
         }, false, 'toggleGrupo'),
 
+      toggleUf: (uf) =>
+        set((s) => {
+          const filtros = { ...s.filtros, ufs: toggleStr(s.filtros.ufs, uf) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
+        }, false, 'toggleUf'),
+
+      toggleMunicipio: (municipio) =>
+        set((s) => {
+          const filtros = { ...s.filtros, municipios: toggleStr(s.filtros.municipios, municipio) }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
+        }, false, 'toggleMunicipio'),
+
+      // Toggle UF + Município juntos ao clicar no mapa
+      toggleMapaLocal: (uf, municipio) =>
+        set((s) => {
+          const key = `${municipio}|${uf}`
+          // Checa se esse par já está selecionado
+          const hasMun = s.filtros.municipios.includes(municipio)
+          const hasUf  = s.filtros.ufs.includes(uf)
+
+          let newMunicipios: string[]
+          let newUfs: string[]
+
+          if (hasMun) {
+            // Remove município
+            newMunicipios = s.filtros.municipios.filter(m => m !== municipio)
+            // Remove UF se não há mais nenhum município daquela UF selecionado
+            const otherMunsOfUf = newMunicipios.length > 0 // simplificado: mantém UF se há outros municípios
+            newUfs = otherMunsOfUf ? s.filtros.ufs : s.filtros.ufs.filter(u => u !== uf)
+          } else {
+            // Adiciona município e UF
+            newMunicipios = [...s.filtros.municipios, municipio]
+            newUfs = hasUf ? s.filtros.ufs : [...s.filtros.ufs, uf]
+          }
+
+          const filtros = { ...s.filtros, ufs: newUfs, municipios: newMunicipios }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
+        }, false, 'toggleMapaLocal'),
+
+      clearMapaFilter: () =>
+        set((s) => {
+          const filtros = { ...s.filtros, ufs: [], municipios: [] }
+          return { filtros, activeCount: countActive(filtros, s.drill) }
+        }, false, 'clearMapaFilter'),
+
       setClientes: (clientes) =>
         set((s) => { const filtros = { ...s.filtros, clientes }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setClientes'),
 
@@ -136,6 +197,12 @@ export const useFiltrosStore = create<FiltrosState>()(
 
       setGrupos: (grupos) =>
         set((s) => { const filtros = { ...s.filtros, grupos }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setGrupos'),
+
+      setUfs: (ufs) =>
+        set((s) => { const filtros = { ...s.filtros, ufs }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setUfs'),
+
+      setMunicipios: (municipios) =>
+        set((s) => { const filtros = { ...s.filtros, municipios }; return { filtros, activeCount: countActive(filtros, s.drill) } }, false, 'setMunicipios'),
 
       setHover: (hover) => set({ hover }, false, 'setHover'),
       clearHover: () => set({ hover: DEFAULT_HOVER }, false, 'clearHover'),
@@ -184,3 +251,16 @@ export const useActiveCount  = () => useFiltrosStore((s) => s.activeCount)
 export const useResetFiltros = () => useFiltrosStore((s) => s.resetFiltros)
 export const useHover        = () => useFiltrosStore((s) => s.hover)
 export const useDrill        = () => useFiltrosStore((s) => s.drill)
+
+// ─── PERFORMANCE: seletores por dimensão ──────────────────────
+// Evitam re-render de um chart quando muda filtro de OUTRA dimensão.
+// Ex: TopClientesChart só re-renderiza quando filtros.clientes muda,
+//     não quando hover, drill, vendedores etc. mudam.
+export const useFilteredAnos       = () => useFiltrosStore((s) => s.filtros.anos)
+export const useFilteredMeses      = () => useFiltrosStore((s) => s.filtros.meses)
+export const useFilteredClientes   = () => useFiltrosStore((s) => s.filtros.clientes)
+export const useFilteredVendedores = () => useFiltrosStore((s) => s.filtros.vendedores)
+export const useFilteredMateriais  = () => useFiltrosStore((s) => s.filtros.materiais)
+export const useFilteredGrupos     = () => useFiltrosStore((s) => s.filtros.grupos)
+export const useFilteredUfs        = () => useFiltrosStore((s) => s.filtros.ufs)
+export const useFilteredMunicipios = () => useFiltrosStore((s) => s.filtros.municipios)

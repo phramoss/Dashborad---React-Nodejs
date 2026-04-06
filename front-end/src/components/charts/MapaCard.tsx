@@ -1,162 +1,176 @@
-import { memo, useMemo, useEffect, useRef, useState } from 'react'
-import * as echarts from 'echarts'
+import { memo, useMemo, useEffect, useRef, useCallback } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useMapaFaturamento } from '@/hooks/useDashboardData'
+import { useFiltrosStore, useFilteredUfs, useFilteredMunicipios } from '@/store/filtros.store'
 import { formatCurrency } from '@/lib/utils'
 import type { MapaMunicipio } from '@/types'
 
-const BRAZIL_GEOJSON_URL =
-  'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-// Cache singleton — 1 fetch por sessão
-let geoJsonCache: unknown = null
-let geoJsonPromise: Promise<unknown> | null = null
+// ─── Cores ────────────────────────────────────────────────────
+const COLORS = {
+  active:         '#00D4AA',
+  activeBorder:   '#00FFCC',
+  dimmedAlpha:    0.15,
+  selectedBorder: '#FFFFFF',
+} as const
 
-function loadBrazilGeoJson(): Promise<unknown> {
-  if (geoJsonCache) return Promise.resolve(geoJsonCache)
-  if (geoJsonPromise) return geoJsonPromise
-  geoJsonPromise = fetch(BRAZIL_GEOJSON_URL)
-    .then(r => { if (!r.ok) throw new Error(`GeoJSON HTTP ${r.status}`); return r.json() })
-    .then(data => { geoJsonCache = data; return data })
-  return geoJsonPromise
+// ─── Helpers ──────────────────────────────────────────────────
+
+function normalizeRadius(v: number, min: number, max: number): number {
+  if (max === min) return 10
+  return 6 + ((v - min) / (max - min)) * 24
 }
 
-function normalizeSymbolSize(v: number, min: number, max: number): number {
-  if (max === min) return 12
-  return 8 + ((v - min) / (max - min)) * 32
+function buildPopupHtml(p: MapaMunicipio, isSelected: boolean): string {
+  return `
+    <div style="
+      font-family:'Roboto',sans-serif;min-width:180px;
+      background:#0E1120;color:#c9c9c9;border-radius:10px;padding:12px 16px;
+    ">
+      <div style="
+        font-size:13px;font-weight:700;color:#00D4AA;
+        padding-bottom:6px;border-bottom:1px solid #2D3554;margin-bottom:8px;
+        display:flex;align-items:center;gap:6px;
+      ">
+        ${p.municipio} — ${p.uf}
+        ${isSelected ? '<span style="font-size:9px;background:#00D4AA22;color:#00FFCC;padding:1px 6px;border-radius:4px;">FILTRADO</span>' : ''}
+      </div>
+      <div style="font-size:11px;color:#8892B0;">Faturamento</div>
+      <div style="font-size:17px;font-weight:700;color:#00FFCC;margin-top:2px;">
+        ${formatCurrency(p.faturamento, true)}
+      </div>
+      <div style="font-size:11px;color:#8892B0;margin-top:6px;">
+        ${p.numClientes} cliente${p.numClientes !== 1 ? 's' : ''}
+      </div>
+      <div style="font-size:9px;color:#8892B055;margin-top:8px;text-align:center;">
+        Clique para ${isSelected ? 'remover' : 'filtrar'} ${p.municipio}/${p.uf} em todo o dashboard
+      </div>
+    </div>`
 }
 
-// ─── Mapa ECharts ────────────────────────────────────────────────────────────
-const MapaInner = memo(function MapaInner({ pontos }: { pontos: MapaMunicipio[] }) {
-  const chartRef    = useRef<HTMLDivElement>(null)
-  const instanceRef = useRef<echarts.ECharts | null>(null)
-  const [geoError, setGeoError] = useState(false)
+// ─── Mapa Leaflet ─────────────────────────────────────────────
+interface MapaInnerProps {
+  pontos: MapaMunicipio[]
+  activeMunicipios: string[]
+  onToggle: (uf: string, municipio: string) => void
+}
+
+const MapaInner = memo(function MapaInner({ pontos, activeMunicipios, onToggle }: MapaInnerProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef       = useRef<L.Map | null>(null)
+  const layerRef     = useRef<L.LayerGroup | null>(null)
+  const fittedRef    = useRef(false)
 
   useEffect(() => {
-    if (!chartRef.current) return
-    let cancelled = false
+    if (!containerRef.current || mapRef.current) return
 
-    async function init() {
-      try {
-        const geoJson = await loadBrazilGeoJson()
-        if (cancelled || !chartRef.current) return
+    const map = L.map(containerRef.current, {
+      center: [-14.5, -51],
+      zoom: 4,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      attributionControl: false,
+    })
 
-        echarts.registerMap('brazil', geoJson as Parameters<typeof echarts.registerMap>[1])
+    L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      { subdomains: 'abcd', maxZoom: 19 },
+    ).addTo(map)
 
-        if (!instanceRef.current) {
-          instanceRef.current = echarts.init(chartRef.current, undefined, { renderer: 'canvas' })
-        }
+    L.control
+      .attribution({ position: 'bottomright', prefix: false })
+      .addAttribution(
+        '© <a href="https://carto.com/">CARTO</a> · © <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+      )
+      .addTo(map)
 
-        const chart  = instanceRef.current
-        const values = pontos.map(p => p.faturamento)
-        const minV   = values.length ? Math.min(...values) : 0
-        const maxV   = values.length ? Math.max(...values) : 1
+    layerRef.current = L.layerGroup().addTo(map)
+    mapRef.current = map
 
-        chart.setOption({
-          backgroundColor: 'transparent',
-          tooltip: {
-            trigger: 'item',
-            backgroundColor: '#0E1120',
-            borderColor: '#2D3554',
-            borderWidth: 1,
-            padding: [10, 14],
-            extraCssText: 'border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5)',
-            formatter: (params: unknown) => {
-              const p = params as { data?: { name: string; value: [number, number, number]; numClientes: number } }
-              if (!p.data?.value) return ''
-              const fat = p.data.value[2]
-              const nc  = p.data.numClientes ?? 0
-              return `
-                <div style="font-family:'Roboto',sans-serif;min-width:160px">
-                  <div style="font-size:13px;font-weight:700;color:#00D4AA;padding-bottom:6px;
-                              border-bottom:1px solid #2D3554;margin-bottom:6px">
-                    ${p.data.name}
-                  </div>
-                  <div style="font-size:12px;color:#c9c9c9">Faturamento</div>
-                  <div style="font-size:16px;font-weight:700;color:#00FFCC">${formatCurrency(fat, true)}</div>
-                  <div style="font-size:11px;color:#8892B0;margin-top:4px">
-                    ${nc} cliente${nc !== 1 ? 's' : ''}
-                  </div>
-                </div>`
-            },
-          },
-          geo: {
-            map: 'brazil',
-            roam: true,
-            zoom: 1.15,
-            center: [-51, -14],
-            itemStyle: { areaColor: '#1A2240', borderColor: '#2D3554', borderWidth: 0.8 },
-            emphasis: {
-              disabled: true,
-              label: { show: false },
-            },
-            label: { show: false },
-          },
-          /*
-           * FIX DO MAPA VAZIO:
-           * Antes: se pontos === [] → EmptyState substituía o mapa inteiro.
-           * Agora: o mapa do Brasil é SEMPRE renderizado (GeoJSON do geo layer).
-           * A série effectScatter é opcional — sem pontos, fica vazia mas o
-           * mapa de fundo aparece corretamente.
-           * Isso separa dois problemas distintos:
-           *   1. GeoJSON não carregou → geoError = true → mensagem de erro
-           *   2. API sem dados de lat/lng → mapa aparece sem bolhas + aviso
-           */
-          series: pontos.length ? [{
-            type: 'effectScatter',
-            coordinateSystem: 'geo',
-            geoIndex: 0,
-            data: pontos.map(p => ({
-              name: `${p.municipio} - ${p.uf}`,
-              value: [p.lng, p.lat, p.faturamento],
-              numClientes: p.numClientes,
-              symbolSize: normalizeSymbolSize(p.faturamento, minV, maxV),
-            })),
-            rippleEffect: { brushType: 'stroke', scale: 1.8, period: 5 },
-            itemStyle: { color: '#00D4AA' },
-            emphasis: { disabled: true },
-            zlevel: 2,
-          }] : [],
-        } satisfies echarts.EChartsOption, { notMerge: true })
-      } catch (e) {
-        console.warn('[MapaCard] Erro ao carregar GeoJSON:', e)
-        if (!cancelled) setGeoError(true)
-      }
-    }
-
-    init()
-
-    const ro = new ResizeObserver(() => instanceRef.current?.resize())
-    ro.observe(chartRef.current!)
+    const ro = new ResizeObserver(() => map.invalidateSize())
+    ro.observe(containerRef.current)
 
     return () => {
-      cancelled = true
       ro.disconnect()
+      map.remove()
+      mapRef.current = null
+      layerRef.current = null
+      fittedRef.current = false
     }
-  }, [pontos])
-
-  useEffect(() => () => {
-    instanceRef.current?.dispose()
-    instanceRef.current = null
   }, [])
 
-  if (geoError) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2">
-        <span className="text-[11px] text-text-muted">Não foi possível carregar o mapa.</span>
-        <span className="text-[10px] text-text-muted/60">Verifique a conexão com a internet.</span>
-      </div>
-    )
-  }
+  useEffect(() => {
+    const layer = layerRef.current
+    const map   = mapRef.current
+    if (!layer || !map) return
+
+    layer.clearLayers()
+    if (!pontos.length) return
+
+    const values    = pontos.map(p => p.faturamento)
+    const minV      = Math.min(...values)
+    const maxV      = Math.max(...values)
+    const munSet    = new Set(activeMunicipios)
+    const hasFilter = munSet.size > 0
+
+    pontos.forEach(p => {
+      const isSelected = munSet.has(p.municipio)
+      const isActive   = !hasFilter || isSelected
+      const baseRadius = normalizeRadius(p.faturamento, minV, maxV)
+      const radius     = isSelected ? baseRadius + 2 : baseRadius
+
+      const circle = L.circleMarker([p.lat, p.lng], {
+        radius,
+        fillColor:   COLORS.active,
+        fillOpacity: isActive ? 0.65 : COLORS.dimmedAlpha,
+        color:       isSelected ? COLORS.selectedBorder : COLORS.activeBorder,
+        weight:      isSelected ? 2.5 : 1.5,
+        opacity:     isActive ? 0.8 : 0.25,
+      })
+
+      circle.bindPopup(buildPopupHtml(p, isSelected), {
+        className: 'leaflet-popup-dark',
+        closeButton: true,
+        maxWidth: 280,
+      })
+
+      circle.on('click', () => onToggle(p.uf, p.municipio))
+
+      circle.on('mouseover', function (this: L.CircleMarker) {
+        this.setStyle({ fillOpacity: 0.95, weight: 3 })
+        this.setRadius(radius + 3)
+      })
+      circle.on('mouseout', function (this: L.CircleMarker) {
+        this.setStyle({
+          fillOpacity: isActive ? 0.65 : COLORS.dimmedAlpha,
+          weight: isSelected ? 2.5 : 1.5,
+        })
+        this.setRadius(radius)
+      })
+
+      layer.addLayer(circle)
+    })
+
+    if (!fittedRef.current && pontos.length > 0) {
+      const bounds = L.latLngBounds(pontos.map(p => [p.lat, p.lng] as L.LatLngTuple))
+      map.flyToBounds(bounds, { padding: [40, 40], duration: 1.2, maxZoom: 7 })
+      fittedRef.current = true
+    }
+  }, [pontos, activeMunicipios, onToggle])
 
   return (
     <div className="relative flex-1 min-h-0">
-      <div ref={chartRef} className="w-full h-full" style={{ minHeight: 260 }} />
+      <div
+        ref={containerRef}
+        className="w-full h-full rounded-lg overflow-hidden"
+        style={{ minHeight: 280 }}
+      />
 
-      {/* Aviso sobreposto quando não há pontos: mapa aparece, mas informa ausência de dados */}
       {pontos.length === 0 && (
-        <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none">
+        <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none z-[1000]">
           <div className="bg-surface/80 backdrop-blur-sm border border-surface-border/60 rounded-lg px-3 py-1.5">
             <p className="text-[10px] text-text-muted text-center">
               Sem dados de geolocalização para os filtros atuais.
@@ -171,30 +185,133 @@ const MapaInner = memo(function MapaInner({ pontos }: { pontos: MapaMunicipio[] 
   )
 })
 
-// ─── Componente exportado ─────────────────────────────────────────────────────
+// ─── Badges ───────────────────────────────────────────────────
+function MapaBadges({
+  activeMunicipios,
+  pontos,
+  onToggle,
+  onClear,
+}: {
+  activeMunicipios: string[]
+  pontos: MapaMunicipio[]
+  onToggle: (uf: string, municipio: string) => void
+  onClear: () => void
+}) {
+  if (activeMunicipios.length === 0) return null
+
+  const munSet = new Set(activeMunicipios)
+  const items = pontos.filter(p => munSet.has(p.municipio))
+
+  // Deduplica por municipio (pode ter mesmo município repetido em pontos diferentes)
+  const seen = new Set<string>()
+  const unique = items.filter(p => {
+    const key = `${p.municipio}|${p.uf}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 mt-2 shrink-0">
+      {unique.map(p => (
+        <button
+          key={`${p.municipio}|${p.uf}`}
+          onClick={() => onToggle(p.uf, p.municipio)}
+          className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-medium
+                     bg-brand/15 text-brand border border-brand/25
+                     hover:bg-brand/25 hover:border-brand/40 transition-all"
+        >
+          {p.municipio} — {p.uf}
+          <span className="text-brand/60 hover:text-brand ml-0.5">✕</span>
+        </button>
+      ))}
+      {unique.length > 1 && (
+        <button
+          onClick={onClear}
+          className="px-2 py-0.5 rounded-md text-[9px] font-medium
+                     text-status-danger/70 hover:text-status-danger
+                     bg-status-danger/5 hover:bg-status-danger/10
+                     border border-status-danger/15 hover:border-status-danger/30
+                     transition-all"
+        >
+          Limpar todos
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Componente exportado ─────────────────────────────────────
 export const MapaCard = memo(function MapaCard() {
-  const { data, isLoading } = useMapaFaturamento()
+  const { data, isLoading }  = useMapaFaturamento()
+  const activeMunicipios     = useFilteredMunicipios()
+  const toggleMapaLocal      = useFiltrosStore(s => s.toggleMapaLocal)
+  const clearMapaFilter      = useFiltrosStore(s => s.clearMapaFilter)
 
   const pontos: MapaMunicipio[] = useMemo(
     () => (data ?? []).filter(d => d.lat !== 0 && d.lng !== 0),
     [data],
   )
 
+  const handleToggle = useCallback((uf: string, municipio: string) => {
+    toggleMapaLocal(uf, municipio)
+  }, [toggleMapaLocal])
+
+  const handleClear = useCallback(() => {
+    clearMapaFilter()
+  }, [clearMapaFilter])
+
+  // Resumo
+  const summary = useMemo(() => {
+    if (activeMunicipios.length === 0) return null
+    const munSet = new Set(activeMunicipios)
+    const filtered = pontos.filter(p => munSet.has(p.municipio))
+    const totalFat = filtered.reduce((s, p) => s + p.faturamento, 0)
+    const totalCli = filtered.reduce((s, p) => s + p.numClientes, 0)
+    return { totalFat, totalCli, count: filtered.length }
+  }, [pontos, activeMunicipios])
+
   return (
     <Card className="flex flex-col h-full">
-      <p
-        className="text-[10px] font-semibold text-text-secondary uppercase tracking-widest mb-3 shrink-0"
-        style={{ fontFamily: 'Roboto, sans-serif' }}
-      >
-        Distribuição por Município
-      </p>
+      <div className="flex items-center justify-between mb-3 shrink-0">
+        <p
+          className="text-[10px] font-semibold text-text-secondary uppercase tracking-widest"
+          style={{ fontFamily: 'Roboto, sans-serif' }}
+        >
+          Faturamento por Município
+        </p>
+
+        {summary && (
+          <div className="flex items-center gap-3 text-[10px]" style={{ fontFamily: 'Roboto, sans-serif' }}>
+            <span className="text-text-muted">
+              {summary.count} município{summary.count !== 1 ? 's' : ''}
+            </span>
+            <span className="font-bold text-brand">
+              {formatCurrency(summary.totalFat, true)}
+            </span>
+            <span className="text-text-muted">
+              {summary.totalCli} cliente{summary.totalCli !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+      </div>
 
       {isLoading && !pontos.length ? (
-        <Skeleton className="flex-1 rounded-xl" style={{ minHeight: 260 }} />
+        <Skeleton className="flex-1 rounded-xl" style={{ minHeight: 280 }} />
       ) : (
-        // FIX: MapaInner agora sempre renderiza — com ou sem pontos
-        <MapaInner pontos={pontos} />
+        <MapaInner
+          pontos={pontos}
+          activeMunicipios={activeMunicipios}
+          onToggle={handleToggle}
+        />
       )}
+
+      <MapaBadges
+        activeMunicipios={activeMunicipios}
+        pontos={pontos}
+        onToggle={handleToggle}
+        onClear={handleClear}
+      />
     </Card>
   )
 })

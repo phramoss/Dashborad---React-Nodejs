@@ -2,18 +2,21 @@ import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoCliente } from '@/hooks/useDashboardData'
-import { useFiltrosStore } from '@/store/filtros.store'
+import { useFiltrosStore, useFilteredClientes } from '@/store/filtros.store'
 import { formatCurrency, truncate } from '@/lib/utils'
 
 export const TopClientesChart = memo(function TopClientesChart() {
   const { data, isLoading, isError, refetch } = useFaturamentoCliente()
-  const { filtros, toggleCliente } = useFiltrosStore()
+  // PERFORMANCE: seletor granular — só re-renderiza quando clientes muda,
+  // não quando hover/drill/vendedores/etc mudam.
+  const activeClientes = useFilteredClientes()
+  const toggleCliente = useFiltrosStore(s => s.toggleCliente)
 
   const items = useMemo(() => (data ?? []), [data])
   const total = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
 
   const option = useMemo((): EChartsOption => {
-    const activeIds = filtros.clientes
+    const activeIds = activeClientes
     const max = Math.max(...items.map((d) => d.faturamento), 1)
 
     return {
@@ -73,7 +76,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
         },
       }],
     }
-  }, [items, filtros.clientes, total])
+  }, [items, activeClientes, total])
 
   // Altura total real do gráfico: 28px por barra
   const BAR_HEIGHT = 28
@@ -91,7 +94,7 @@ export const TopClientesChart = memo(function TopClientesChart() {
       onRetry={() => refetch()}
       height={chartInnerHeight}
       maxVisibleHeight={visibleHeight}
-      active={filtros.clientes.length > 0}
+      active={activeClientes.length > 0}
       animationDelay={100}
       clickable
       onChartClick={(params) => {

@@ -1,156 +1,129 @@
 import { memo, useMemo, useEffect, useRef } from 'react'
-import * as echarts from 'echarts'
 import { useMapaFaturamento } from '@/hooks/useDashboardData'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { formatCurrency } from '@/lib/utils'
 import type { MapaMunicipio } from '@/types'
 
-const BRAZIL_GEOJSON_URL =
-  'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
-// Cache em módulo: carregado 1x por sessão, nunca re-fetched
-let geoJsonCache: unknown = null
-let geoJsonPromise: Promise<unknown> | null = null
-
-function loadBrazilGeoJson(): Promise<unknown> {
-  if (geoJsonCache) return Promise.resolve(geoJsonCache)
-  if (geoJsonPromise) return geoJsonPromise
-  geoJsonPromise = fetch(BRAZIL_GEOJSON_URL)
-    .then(r => r.json())
-    .then(data => { geoJsonCache = data; return data })
-  return geoJsonPromise
+function normalizeRadius(v: number, min: number, max: number): number {
+  if (max === min) return 10
+  return 6 + ((v - min) / (max - min)) * 24
 }
 
-function normalizeSymbolSize(v: number, min: number, max: number): number {
-  if (max === min) return 10
-  return 8 + ((v - min) / (max - min)) * 30
+function buildPopupHtml(p: MapaMunicipio): string {
+  return `
+    <div style="
+      font-family:'Roboto',sans-serif;min-width:180px;
+      background:#0E1120;color:#c9c9c9;border-radius:10px;padding:12px 16px;
+    ">
+      <div style="font-size:13px;font-weight:700;color:#00D4AA;
+        padding-bottom:6px;border-bottom:1px solid #2D3554;margin-bottom:8px;">
+        ${p.municipio} — ${p.uf}
+      </div>
+      <div style="font-size:11px;color:#8892B0;">Faturamento</div>
+      <div style="font-size:17px;font-weight:700;color:#00FFCC;margin-top:2px;">
+        ${formatCurrency(p.faturamento, true)}
+      </div>
+      <div style="font-size:11px;color:#8892B0;margin-top:6px;">
+        ${p.numClientes} cliente${p.numClientes !== 1 ? 's' : ''}
+      </div>
+    </div>`
 }
 
 export const MapaFaturamento = memo(function MapaFaturamento() {
   const { data, isLoading } = useMapaFaturamento()
-  const chartRef   = useRef<HTMLDivElement>(null)
-  const instanceRef = useRef<echarts.ECharts | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef       = useRef<L.Map | null>(null)
+  const layerRef     = useRef<L.LayerGroup | null>(null)
 
   const pontos: MapaMunicipio[] = useMemo(() => {
     if (!data) return []
     return data.filter(d => d.lat !== 0 && d.lng !== 0)
   }, [data])
 
+  // Inicializa mapa
   useEffect(() => {
-    if (!chartRef.current || !pontos.length) return
+    if (!containerRef.current || mapRef.current) return
 
-    let cancelled = false
+    const map = L.map(containerRef.current, {
+      center: [-14.5, -51],
+      zoom: 4,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      attributionControl: false,
+    })
 
-    async function init() {
-      try {
-        const geoJson = await loadBrazilGeoJson()
-        if (cancelled || !chartRef.current) return
+    L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      { subdomains: 'abcd', maxZoom: 19 },
+    ).addTo(map)
 
-        echarts.registerMap('brazil', geoJson as Parameters<typeof echarts.registerMap>[1])
+    L.control.attribution({ position: 'bottomright', prefix: false })
+      .addAttribution('© <a href="https://carto.com/">CARTO</a> · © <a href="https://www.openstreetmap.org/copyright">OSM</a>')
+      .addTo(map)
 
-        if (!instanceRef.current) {
-          instanceRef.current = echarts.init(chartRef.current, undefined, {
-            renderer: 'canvas',
-          })
-        }
+    layerRef.current = L.layerGroup().addTo(map)
+    mapRef.current = map
 
-        const chart = instanceRef.current
-        const values = pontos.map(p => p.faturamento)
-        const minV = Math.min(...values, 0)
-        const maxV = Math.max(...values, 1)
-
-        const option: echarts.EChartsOption = {
-          backgroundColor: 'transparent',
-          tooltip: {
-            trigger: 'item',
-            backgroundColor: '#0E1120',
-            borderColor: '#2D3554',
-            borderWidth: 1,
-            padding: [10, 14],
-            extraCssText: 'border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5)',
-            formatter: (params: unknown) => {
-              const p = params as { data: { name: string; value: [number, number, number]; numClientes: number } }
-              if (!p.data?.value) return ''
-              const fat = p.data.value[2]
-              const nc  = p.data.numClientes ?? 0
-              return `
-                <div style="font-family:'Roboto',sans-serif;min-width:160px">
-                  <div style="font-size:13px;font-weight:700;color:#00D4AA;padding-bottom:6px;border-bottom:1px solid #2D3554;margin-bottom:6px">
-                    ${p.data.name}
-                  </div>
-                  <div style="font-size:12px;color:#c9c9c9">Faturamento</div>
-                  <div style="font-size:16px;font-weight:700;color:#00FFCC">${formatCurrency(fat, true)}</div>
-                  <div style="font-size:11px;color:#8892B0;margin-top:4px">${nc} cliente${nc !== 1 ? 's' : ''}</div>
-                </div>`
-            },
-          },
-          geo: {
-            map: 'brazil',
-            roam: true,
-            zoom: 1.1,
-            center: [-51, -14],
-            itemStyle: {
-              areaColor: '#1A2240',
-              borderColor: '#2D3554',
-              borderWidth: 0.8,
-            },
-            emphasis: {
-              disabled: true,
-              label: { show: false },
-            },
-            label: { show: false },
-          },
-          series: [
-            {
-              type: 'effectScatter',
-              coordinateSystem: 'geo',
-              geoIndex: 0,
-              data: pontos.map(p => ({
-                name: `${p.municipio} - ${p.uf}`,
-                value: [p.lng, p.lat, p.faturamento],
-                numClientes: p.numClientes,
-                symbolSize: normalizeSymbolSize(p.faturamento, minV, maxV),
-              })),
-              rippleEffect: {
-                brushType: 'stroke',
-                scale: 1.8,
-                period: 5,
-              },
-              itemStyle: {
-                color: '#00D4AA',
-              },
-              emphasis: {
-                disabled: true,
-              },
-              zlevel: 2,
-            },
-          ],
-        }
-
-        chart.setOption(option, { notMerge: true })
-      } catch (e) {
-        console.warn('[MapaFaturamento] Erro ao carregar GeoJSON:', e)
-      }
-    }
-
-    init()
-
-    const ro = new ResizeObserver(() => instanceRef.current?.resize())
-    if (chartRef.current) ro.observe(chartRef.current)
+    const ro = new ResizeObserver(() => map.invalidateSize())
+    ro.observe(containerRef.current)
 
     return () => {
-      cancelled = true
       ro.disconnect()
-    }
-  }, [pontos])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      instanceRef.current?.dispose()
-      instanceRef.current = null
+      map.remove()
+      mapRef.current = null
+      layerRef.current = null
     }
   }, [])
+
+  // Atualiza marcadores
+  useEffect(() => {
+    const layer = layerRef.current
+    const map   = mapRef.current
+    if (!layer || !map) return
+
+    layer.clearLayers()
+    if (!pontos.length) return
+
+    const values = pontos.map(p => p.faturamento)
+    const minV = Math.min(...values)
+    const maxV = Math.max(...values)
+
+    pontos.forEach(p => {
+      const radius = normalizeRadius(p.faturamento, minV, maxV)
+
+      const circle = L.circleMarker([p.lat, p.lng], {
+        radius,
+        fillColor: '#00D4AA',
+        fillOpacity: 0.6,
+        color: '#00FFCC',
+        weight: 1.5,
+        opacity: 0.8,
+      })
+
+      circle.bindPopup(buildPopupHtml(p), {
+        className: 'leaflet-popup-dark',
+        closeButton: true,
+        maxWidth: 280,
+      })
+
+      circle.on('mouseover', function (this: L.CircleMarker) {
+        this.setStyle({ fillOpacity: 0.95, weight: 2.5 })
+        this.setRadius(radius + 3)
+      })
+      circle.on('mouseout', function (this: L.CircleMarker) {
+        this.setStyle({ fillOpacity: 0.6, weight: 1.5 })
+        this.setRadius(radius)
+      })
+
+      layer.addLayer(circle)
+    })
+
+    const bounds = L.latLngBounds(pontos.map(p => [p.lat, p.lng] as L.LatLngTuple))
+    map.flyToBounds(bounds, { padding: [40, 40], duration: 1.2, maxZoom: 7 })
+  }, [pontos])
 
   if (isLoading && !pontos.length) {
     return <Skeleton className="w-full h-full rounded-xl" style={{ minHeight: 220 }} />
@@ -164,7 +137,11 @@ export const MapaFaturamento = memo(function MapaFaturamento() {
       >
         Distribuição por Município
       </p>
-      <div ref={chartRef} className="flex-1 min-h-0 w-full" style={{ minHeight: 220 }} />
+      <div
+        ref={containerRef}
+        className="flex-1 min-h-0 w-full rounded-lg overflow-hidden"
+        style={{ minHeight: 220 }}
+      />
     </div>
   )
 })

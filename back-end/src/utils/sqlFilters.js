@@ -7,6 +7,9 @@
  *   Constrói os filtros já com alias de tabela, evitando a substituição
  *   regex frágil que existia nos endpoints com JOIN (top-materiais,
  *   por-grupo, mapa-faturamento).
+ *
+ * ADIÇÃO: filtro de município (mun_pess) — usa subquery em BI_CLIENTE
+ *   para filtrar por município em endpoints que só acessam BI_FATURAMENTO.
  */
 
 function addEqFilter(where, params, field, value, cast) {
@@ -78,6 +81,35 @@ function addMonthFilter(where, params, dateField, value) {
 }
 
 /**
+ * addMunicipioFilter
+ *
+ * Filtra por município usando subquery em BI_CLIENTE.
+ * Aceita "SAO PAULO,CASTELO" ou array.
+ * Gera: COD_CLIENTE IN (SELECT COD_CLIENTE FROM BI_CLIENTE WHERE MUN_PESS IN (...))
+ *
+ * @param {string[]} where
+ * @param {any[]}    params
+ * @param {string}   codClienteField  ex: "FAT.COD_CLIENTE" ou "COD_CLIENTE"
+ * @param {string|undefined} value    ex: "SAO PAULO,CASTELO"
+ */
+function addMunicipioFilter(where, params, codClienteField, value) {
+  if (value === undefined || value === null || value === '') return
+
+  const raw = Array.isArray(value) ? value : String(value).split(',')
+  const municipios = raw
+    .map(v => v.toString().trim().toUpperCase())
+    .filter(v => v !== '')
+
+  if (municipios.length === 0) return
+
+  const placeholders = municipios.map(() => '?').join(', ')
+  where.push(
+    `${codClienteField} IN (SELECT COD_CLIENTE FROM BI_CLIENTE WHERE UPPER(MUN_PESS) IN (${placeholders}))`
+  )
+  params.push(...municipios)
+}
+
+/**
  * buildFiltersForAlias
  *
  * Versão dos filtros já prefixada com alias de tabela.
@@ -99,6 +131,7 @@ function buildFiltersForAlias(qs, alias) {
     mercado,
     pais,
     uf,
+    municipio,
     meses,
     data_ini,
     data_fim,
@@ -117,6 +150,9 @@ function buildFiltersForAlias(qs, alias) {
   addInFilter(where, params, `${A}PAIS`,         pais,         String)
   addInFilter(where, params, `${A}UF`,           uf,           String)
 
+  // Filtro de município via subquery em BI_CLIENTE
+  addMunicipioFilter(where, params, `${A}COD_CLIENTE`, municipio)
+
   const campoData =
     String(data_tipo || 'emissao').toLowerCase() === 'saida'
       ? `${A}DATA_SAIDA`
@@ -133,5 +169,6 @@ module.exports = {
   addInFilter,
   addDateRange,
   addMonthFilter,
+  addMunicipioFilter,
   buildFiltersForAlias,
 }

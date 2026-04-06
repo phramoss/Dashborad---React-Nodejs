@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom'
 import { Bell, RefreshCw, Calendar, Menu } from 'lucide-react'
 import { useActiveCount, useResetFiltros } from '@/store/filtros.store'
 import { useGlobalLoading } from '@/hooks/useGlobalLoading'
-import { useUltimaAtualizacao } from '@/hooks/useDashboardData'
+// import { useUltimaAtualizacao } from '@/hooks/useDashboardData'
 import { cn } from '@/lib/utils'
 
 const PAGE_TITLES: Record<string, { title: string; desc: string }> = {
@@ -12,33 +12,33 @@ const PAGE_TITLES: Record<string, { title: string; desc: string }> = {
   '/produtos':    { title: 'Produtos',    desc: 'Catálogo e materiais' },
 }
 
-function UltimaAtualizacao() {
-  const { data: ultimaData } = useUltimaAtualizacao()
+// function UltimaAtualizacao() {
+//   const { data: ultimaData } = useUltimaAtualizacao()
 
-  const formatted = ultimaData
-    ? new Date(ultimaData).toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : new Date().toLocaleDateString('pt-BR', {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      })
+//   const formatted = ultimaData
+//     ? new Date(ultimaData).toLocaleString('pt-BR', {
+//         day: '2-digit',
+//         month: 'short',
+//         year: 'numeric',
+//         hour: '2-digit',
+//         minute: '2-digit',
+//       })
+//     : new Date().toLocaleDateString('pt-BR', {
+//         weekday: 'short',
+//         day: '2-digit',
+//         month: 'short',
+//         year: 'numeric',
+//       })
 
-  return (
-    <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-text-muted">
-      <Calendar size={11} />
-      <span className="capitalize">
-        {ultimaData ? `Atualizado: ${formatted}` : formatted}
-      </span>
-    </div>
-  )
-}
+//   return (
+//     <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-text-muted">
+//       <Calendar size={11} />
+//       <span className="capitalize">
+//         {ultimaData ? `Atualizado: ${formatted}` : formatted}
+//       </span>
+//     </div>
+//   )
+// }
 
 interface TopBarProps {
   onMenuClick?: () => void
@@ -93,7 +93,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
       {/* Right */}
       <div className="flex items-center gap-3">
-        <UltimaAtualizacao />
+        {/* <UltimaAtualizacao /> */}
 
         <button className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all relative">
           <Bell size={14} strokeWidth={1.5} />

@@ -9,6 +9,7 @@ import { VendedoresChart } from '@/components/charts/VendedoresChart'
 import { MapaCard } from '@/components/charts/MapaCard'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { useKpiSummary } from '@/hooks/useDashboardData'
+import { useDashboardCombined } from '@/hooks/useDashboardCombined'
 
 const KpiSection = memo(function KpiSection() {
   const { data, isLoading } = useKpiSummary()
@@ -16,6 +17,11 @@ const KpiSection = memo(function KpiSection() {
 })
 
 export function OverviewPage() {
+  // PERFORMANCE: 1 request HTTP busca tudo e popula o cache dos hooks individuais.
+  // Os charts usam useKpiSummary, useFaturamentoPeriodo, etc. que encontram os dados
+  // já no cache do React Query — sem fazer requests adicionais.
+  useDashboardCombined()
+
   return (
     <div className="flex flex-col gap-4 max-w-[1600px] mx-auto pb-8">
 

@@ -1,30 +1,3 @@
-/**
- * analytics.js — VERSÃO CORRIGIDA
- *
- * Correções aplicadas:
- *
- * 1. KPI — ticket_medio
- *    ANTES: AVG(TOTAL_DOCIT) → média por linha de faturamento (errado)
- *    DEPOIS: SUM / COUNT(DISTINCT COD_CLIENTE) → ticket por cliente (correto)
- *
- * 2. KPI — total_m2
- *    ANTES: SUM(CASE WHEN UNIDADE='M2' THEN QTDE) → soma de área (número)
- *           sendo exibido como moeda no front (errado)
- *    DEPOIS: SUM(CASE WHEN UNIDADE='M2' THEN TOTAL_DOCIT) → receita em R$
- *
- * 3. top-materiais / por-grupo / mapa-faturamento
- *    ANTES: WHERE construído sem alias + regex replace frágil nas strings
- *    DEPOIS: usa buildFiltersForAlias('FAT') → alias correto desde o início
- *
- * 4. top-vendedores
- *    ANTES: VENDEDOR sem normalização
- *    DEPOIS: IIF para tratar '.' / ' ' / NULL → 'SEM VENDEDOR'
- *
- * 5. ultima-atualizacao
- *    ANTES: MAX(DATA_EMISAO) — campo DATE sem hora, sempre 00:00
- *    DEPOIS: MAX de DATA_EMISAO e DATA_SAIDA; retorna o mais recente
- */
-
 const express = require('express')
 const router  = express.Router()
 const { query } = require('../db')
@@ -80,20 +53,11 @@ router.get('/analytics/kpi', async (req, res, next) => {
         COUNT(DISTINCT COD_DOC)                                                 AS num_pedidos,
         COUNT(DISTINCT CASE WHEN MERCADO = 'EXTERNO' THEN COD_DOC END)          AS pedidos_exterior,
         COUNT(DISTINCT CASE WHEN MERCADO = 'INTERNO' THEN COD_DOC END)          AS pedidos_interno,
-
-        /* FIX: totalM2 = RECEITA dos produtos M², não a área.
-           Era SUM(QTDE) que dava um número sem sentido formatado como moeda. */
-        SUM(CASE WHEN UNIDADE = 'M2' THEN TOTAL_DOCIT ELSE 0 END)               AS total_m2,
+        SUM(CASE WHEN UNIDADE = 'M2' THEN QTDE ELSE 0 END)                      AS total_m2,
         SUM(CASE WHEN UNIDADE = 'M2' THEN QTDE_PC    ELSE 0 END)                AS qtd_m2,
-
-        /* totalM3 = volume em M³ (exibido como número, não moeda) */
         SUM(CASE WHEN UNIDADE = 'M3' THEN QTDE        ELSE 0 END)               AS total_m3,
         SUM(CASE WHEN UNIDADE = 'M3' THEN QTDE_PC     ELSE 0 END)               AS qtd_m3,
-
-        /* FIX: ticket_medio = receita total / nº de clientes distintos.
-           Era AVG(TOTAL_DOCIT) que media por linha, não por cliente. */
         SUM(TOTAL_DOCIT) / NULLIF(COUNT(DISTINCT COD_CLIENTE), 0)               AS ticket_medio
-
       FROM BI_FATURAMENTO ${w}
     `
 
@@ -159,17 +123,16 @@ router.get('/analytics/por-mes', async (req, res, next) => {
 // ─── Top Clientes ────────────────────────────────────────────────────────────
 router.get('/analytics/top-clientes', async (req, res, next) => {
   try {
-    const { limit } = req.query
-    const lim = limit !== undefined ? Math.max(1, Number(limit)) : null
+    const { limit = '20' } = req.query
+    const lim = Math.min(200, Math.max(1, Number(limit)))
     const { where, params } = buildDashFilters(req.query)
     const w = toWhere(where)
-    const rowsClause = lim !== null ? `ROWS 1 TO ${lim}` : ''
     const sql = `
       SELECT COD_CLIENTE AS cod_cliente, NOM_PESS AS cliente, SUM(TOTAL_DOCIT) AS total
       FROM BI_FATURAMENTO ${w}
       GROUP BY COD_CLIENTE, NOM_PESS
       ORDER BY total DESC
-      ${rowsClause}
+      ROWS 1 TO ${lim}
     `
     const rows = await query(sql, params)
     res.json(rows.map(r => ({
@@ -184,9 +147,9 @@ router.get('/analytics/top-clientes', async (req, res, next) => {
 // FIX: usa buildFiltersForAlias('FAT') em vez de regex replace nos WHERE strings.
 router.get('/analytics/top-materiais', async (req, res, next) => {
   try {
-    const { limit } = req.query
-    const lim = limit !== undefined ? Math.max(1, Number(limit)) : null
-    const rowsClause = lim !== null ? `ROWS 1 TO ${lim}` : ''
+    const { limit = '20' } = req.query
+    const lim = Math.min(200, Math.max(1, Number(limit)))
+    const rowsClause = `ROWS 1 TO ${lim}`
 
     const { where, params, campoData } = buildFiltersForAlias(req.query, 'FAT')
     const w = toWhere(where)
@@ -365,11 +328,26 @@ router.get('/analytics/mapa-faturamento', async (req, res, next) => {
       ROWS 1 TO 150
     `
     const rows = await query(sql, params)
+
+    // Converte valor de coordenada que pode vir como:
+    //   - número nativo (ex: -19.338)
+    //   - string com vírgula (ex: "-19,338" — locale pt-BR / Firebird)
+    //   - string com ponto (ex: "-19.338")
+    //   - null / undefined
+    function parseCoord(val) {
+      if (val == null) return 0
+      if (typeof val === 'number') return isNaN(val) ? 0 : val
+      // String: troca vírgula por ponto antes de converter
+      const cleaned = String(val).replace(',', '.')
+      const num = parseFloat(cleaned)
+      return isNaN(num) ? 0 : num
+    }
+
     res.json(rows.map(r => ({
       municipio:   String(r.MUNICIPIO    || r.municipio    || ''),
       uf:          String(r.UF           || r.uf           || ''),
-      lat:         Number(r.LATITUDE     || r.latitude     || 0),
-      lng:         Number(r.LONGITUDE    || r.longitude    || 0),
+      lat:         parseCoord(r.latitude  ?? r.LATITUDE),
+      lng:         parseCoord(r.longitude ?? r.LONGITUDE),
       faturamento: Number(r.TOTAL        || r.total        || 0),
       numClientes: Number(r.NUM_CLIENTES || r.num_clientes || 0),
     })))
@@ -442,6 +420,149 @@ router.get('/analytics/mapa-debug', async (req, res, next) => {
         ibge === 0 ? '❌ BI_CLIENTE.IBGE_MUN não está preenchido' :
         match === 0 ? '❌ GEOCODIGO_MUNICIPIO x IBGE_MUN sem correspondência (verificar formato/tipo)' :
         '❌ JOIN faturamento sem resultado — verificar COD_CLIENTE',
+    })
+  } catch (err) { next(err) }
+})
+
+// ─── Dashboard Combinado ──────────────────────────────────────────────────────
+// PERFORMANCE: 1 request HTTP = KPI + porAno + topClientes + topMateriais +
+// topVendedores + porGrupo, rodando em paralelo dentro do mesmo roundtrip.
+// Reduz latência de ~10 requests sequenciais para 1 request com Promise.all.
+router.get('/analytics/dashboard', async (req, res, next) => {
+  try {
+    const { where, params, campoData } = buildDashFilters(req.query)
+    const w = toWhere(where)
+
+    // Filtros com alias para queries com JOIN
+    const { where: wFat, params: pFat } = buildFiltersForAlias(req.query, 'FAT')
+    const wJoin = toWhere(wFat)
+
+    const [kpiRows, anoRows, clienteRows, vendedorRows, grupoRows, materialRows] = await Promise.all([
+      // KPI
+      query(`
+        SELECT
+          SUM(TOTAL_DOCIT) AS faturamento,
+          COUNT(DISTINCT COD_DOC) AS num_pedidos,
+          COUNT(DISTINCT CASE WHEN MERCADO = 'EXTERNO' THEN COD_DOC END) AS pedidos_exterior,
+          COUNT(DISTINCT CASE WHEN MERCADO = 'INTERNO' THEN COD_DOC END) AS pedidos_interno,
+          SUM(CASE WHEN UNIDADE = 'M2' THEN QTDE ELSE 0 END) AS total_m2,
+          SUM(CASE WHEN UNIDADE = 'M2' THEN QTDE_PC ELSE 0 END) AS qtd_m2,
+          SUM(CASE WHEN UNIDADE = 'M3' THEN QTDE ELSE 0 END) AS total_m3,
+          SUM(CASE WHEN UNIDADE = 'M3' THEN QTDE_PC ELSE 0 END) AS qtd_m3,
+          SUM(TOTAL_DOCIT) / NULLIF(COUNT(DISTINCT COD_CLIENTE), 0) AS ticket_medio
+        FROM BI_FATURAMENTO ${w}
+      `, params),
+
+      // Por Ano
+      query(`
+        SELECT EXTRACT(YEAR FROM ${campoData}) AS ano, ROUND(SUM(TOTAL_DOCIT), 2) AS total
+        FROM BI_FATURAMENTO ${w}
+        GROUP BY EXTRACT(YEAR FROM ${campoData})
+        ORDER BY ano
+      `, params),
+
+      // Top Clientes (limit 20)
+      query(`
+        SELECT COD_CLIENTE AS cod_cliente, NOM_PESS AS cliente, SUM(TOTAL_DOCIT) AS total
+        FROM BI_FATURAMENTO ${w}
+        GROUP BY COD_CLIENTE, NOM_PESS
+        ORDER BY total DESC ROWS 1 TO 20
+      `, params),
+
+      // Top Vendedores (limit 20)
+      query(`
+        SELECT COD_VENDEDOR AS cod_vendedor,
+          IIF(VENDEDOR IS NULL OR TRIM(VENDEDOR)='' OR TRIM(VENDEDOR)='.','SEM VENDEDOR',TRIM(VENDEDOR)) AS vendedor,
+          SUM(TOTAL_DOCIT) AS total
+        FROM BI_FATURAMENTO ${w}
+        GROUP BY COD_VENDEDOR,
+          IIF(VENDEDOR IS NULL OR TRIM(VENDEDOR)='' OR TRIM(VENDEDOR)='.','SEM VENDEDOR',TRIM(VENDEDOR))
+        ORDER BY total DESC ROWS 1 TO 20
+      `, params),
+
+      // Por Grupo (com JOIN)
+      (async () => {
+        try {
+          return await query(`
+            SELECT FAT.COD_GRP AS cod_grp, GRP.NOM_GRP AS descricao, SUM(FAT.TOTAL_DOCIT) AS total
+            FROM BI_FATURAMENTO FAT
+            LEFT JOIN BI_GRUPO GRP ON GRP.COD_GRP = FAT.COD_GRP
+            ${wJoin}
+            GROUP BY FAT.COD_GRP, GRP.NOM_GRP
+            ORDER BY total DESC
+          `, pFat)
+        } catch {
+          return await query(`
+            SELECT COD_GRP AS cod_grp, COD_GRP AS descricao, SUM(TOTAL_DOCIT) AS total
+            FROM BI_FATURAMENTO ${w}
+            GROUP BY COD_GRP ORDER BY total DESC
+          `, params)
+        }
+      })(),
+
+      // Top Materiais (com JOIN, limit 20)
+      (async () => {
+        try {
+          return await query(`
+            SELECT FAT.COD_MA, MA.MATERIAL AS nom_ma, ROUND(SUM(FAT.TOTAL_DOCIT), 2) AS total
+            FROM BI_FATURAMENTO FAT
+            LEFT JOIN BI_MATERIAL MA ON MA.COD_MA = FAT.COD_MA
+            ${wJoin}
+            GROUP BY FAT.COD_MA, MA.MATERIAL
+            ORDER BY total DESC ROWS 1 TO 20
+          `, pFat)
+        } catch {
+          return await query(`
+            SELECT COD_MA, MATERIAL AS nom_ma, SUM(TOTAL_DOCIT) AS total
+            FROM BI_FATURAMENTO ${w}
+            GROUP BY COD_MA, MATERIAL
+            ORDER BY total DESC ROWS 1 TO 20
+          `, params)
+        }
+      })(),
+    ])
+
+    const r = kpiRows[0] || {}
+    const n = (v) => Number(v || 0)
+
+    res.json({
+      kpi: {
+        faturamento:         n(r.FATURAMENTO       ?? r.faturamento),
+        numeroPedidos:       n(r.NUM_PEDIDOS       ?? r.num_pedidos),
+        pedidosExterior:     n(r.PEDIDOS_EXTERIOR  ?? r.pedidos_exterior),
+        pedidosInterno:      n(r.PEDIDOS_INTERNO   ?? r.pedidos_interno),
+        totalM2:             n(r.TOTAL_M2          ?? r.total_m2),
+        qtdM2:               n(r.QTD_M2            ?? r.qtd_m2),
+        totalM3:             n(r.TOTAL_M3          ?? r.total_m3),
+        qtdM3:               n(r.QTD_M3            ?? r.qtd_m3),
+        ticketMedio:         n(r.TICKET_MEDIO      ?? r.ticket_medio),
+        variacaoFaturamento: 0,
+        faturamentoAnterior: 0,
+      },
+      porAno: anoRows.map(r => ({
+        periodo:     String(Number(r.ANO   ?? r.ano)),
+        faturamento: n(r.TOTAL ?? r.total),
+      })),
+      topClientes: clienteRows.map(r => ({
+        clienteId:   Number(r.COD_CLIENTE ?? r.cod_cliente),
+        clienteNome: String(r.CLIENTE     ?? r.cliente     ?? ''),
+        faturamento: n(r.TOTAL ?? r.total),
+      })),
+      topVendedores: vendedorRows.map(r => ({
+        vendedorId:   Number(r.COD_VENDEDOR ?? r.cod_vendedor ?? 0),
+        vendedorNome: String(r.VENDEDOR     ?? r.vendedor     ?? ''),
+        faturamento:  n(r.TOTAL ?? r.total),
+      })),
+      porGrupo: grupoRows.map(r => ({
+        grupoId:     Number(r.COD_GRP   ?? r.cod_grp   ?? 0),
+        grupoNome:   String(r.DESCRICAO ?? r.descricao ?? `Grupo ${r.COD_GRP ?? r.cod_grp}`),
+        faturamento: n(r.TOTAL ?? r.total),
+      })),
+      topMateriais: materialRows.map(r => ({
+        materialId:   Number(r.COD_MA   ?? r.cod_ma   ?? 0),
+        materialNome: String(r.NOM_MA   ?? r.nom_ma   ?? r.MATERIAL ?? r.material ?? ''),
+        faturamento:  n(r.TOTAL ?? r.total),
+      })),
     })
   } catch (err) { next(err) }
 })

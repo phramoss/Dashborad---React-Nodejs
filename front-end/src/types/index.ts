@@ -69,6 +69,8 @@ export interface FiltroDashboard {
   vendedores: number[]
   materiais: number[]
   grupos: number[]
+  ufs: string[]           // UFs selecionadas via clique no mapa (ex: ['ES', 'SP'])
+  municipios: string[]    // Municípios selecionados via clique no mapa (ex: ['CASTELO', 'SERRA'])
   granularidade: GranularidadePeriodo
 }
 
@@ -80,6 +82,8 @@ export interface ApiQueryParams {
   cod_vendedor?: string
   cod_ma?:       string
   cod_grp?:      string
+  uf?:           string   // "ES,SP,MG"
+  municipio?:    string   // "CASTELO,SERRA,SAO PAULO"
   meses?:        string   // "1,3,12" — filtro de meses (1-12)
   data_ini?:     string   // "YYYY-MM-DD"
   data_fim?:     string

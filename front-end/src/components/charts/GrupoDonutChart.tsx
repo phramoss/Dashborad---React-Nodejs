@@ -2,7 +2,7 @@ import { memo, useMemo, useCallback } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ChartContainer, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoGrupo } from '@/hooks/useDashboardData'
-import { useFiltrosStore } from '@/store/filtros.store'
+import { useFiltrosStore, useFilteredGrupos } from '@/store/filtros.store'
 import { formatCurrency } from '@/lib/utils'
 
 const DONUT_PALETTE = ['#00D4AA', '#4A90D9', '#7B5EA7', '#F5A623', '#E056A0', '#F7DC6F']
@@ -13,7 +13,8 @@ function sanitizeName(name: string): string {
 
 export const GrupoDonutChart = memo(function GrupoDonutChart() {
   const { data, isLoading, isError, refetch } = useFaturamentoGrupo()
-  const { filtros, toggleGrupo } = useFiltrosStore()
+  const activeGrupos = useFilteredGrupos()
+  const toggleGrupo = useFiltrosStore(s => s.toggleGrupo)
 
   const items = useMemo(() => {
     return (data ?? [])
@@ -38,14 +39,14 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
 
   // Valor exibido no centro: soma dos selecionados, ou total geral se nenhum
   const totalExibido = useMemo(() => {
-    if (filtros.grupos.length === 0) return total
+    if (activeGrupos.length === 0) return total
     return items
-      .filter(d => filtros.grupos.includes(d.grupoId))
+      .filter(d => activeGrupos.includes(d.grupoId))
       .reduce((s, d) => s + d.faturamento, 0)
-  }, [items, filtros.grupos, total])
+  }, [items, activeGrupos, total])
 
   const option = useMemo((): EChartsOption => {
-    const activeIds = filtros.grupos
+    const activeIds = activeGrupos
 
     return {
       backgroundColor: 'transparent',
@@ -128,11 +129,11 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
           position: 'center',
           formatter: () => [
             `{value|${formatCurrency(totalExibido, true)}}`,
-            `{sub|${filtros.grupos.length > 0 ? 'Selecionado' : 'Total'}}`,
+            `{sub|${activeGrupos.length > 0 ? 'Selecionado' : 'Total'}}`,
           ].join('\n'),
           rich: {
             value: {
-              color: filtros.grupos.length > 0 ? '#00D4AA' : '#E8EAF0',
+              color: activeGrupos.length > 0 ? '#00D4AA' : '#E8EAF0',
               fontSize: 16,
               fontWeight: '600',
               fontFamily: 'Roboto',
@@ -164,7 +165,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       }],
       graphic: [],
     }
-  }, [items, itemsByName, filtros.grupos, total, totalExibido])
+  }, [items, itemsByName, activeGrupos, total, totalExibido])
 
   const handleLegendClick = useCallback((params: { name: string }) => {
     const item = itemsByName.get(params.name)
@@ -180,7 +181,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       empty={!isLoading && items.length === 0}
       onRetry={() => refetch()}
       height={260}
-      active={filtros.grupos.length > 0}
+      active={activeGrupos.length > 0}
       animationDelay={50}
       clickable
       onChartClick={(params) => {

@@ -27,27 +27,25 @@ const BASE = {
 
 export const qk = {
   kpi: (f: ReturnType<typeof useDebouncedFiltros>) =>
-    ['kpi', f.anos, f.meses, f.clientes, f.vendedores, f.materiais, f.grupos] as const,
+    ['kpi', f.anos, f.meses, f.clientes, f.vendedores, f.materiais, f.grupos, f.ufs, f.municipios] as const,
 
   periodo: (f: ReturnType<typeof useDebouncedFiltros>) =>
-    ['periodo', f.anos, f.meses, f.clientes, f.vendedores, f.materiais, f.grupos, f.granularidade] as const,
+    ['periodo', f.anos, f.meses, f.clientes, f.vendedores, f.materiais, f.grupos, f.ufs, f.municipios, f.granularidade] as const,
 
-  // FIX: drillMes NÃO inclui f.meses — o gráfico sempre mostra todos os meses.
-  // A seleção de meses é puramente visual (dimming) e não deve invalidar o cache.
   drillMes: (f: ReturnType<typeof useDebouncedFiltros>, ano: number) =>
-    ['drill-mes', f.anos, f.clientes, f.vendedores, f.materiais, f.grupos, ano] as const,
+    ['drill-mes', f.anos, f.clientes, f.vendedores, f.materiais, f.grupos, f.ufs, f.municipios, ano] as const,
 
   clientes: (f: ReturnType<typeof useDebouncedFiltros>) =>
-    ['clientes', f.anos, f.meses, f.vendedores, f.materiais, f.grupos] as const,
+    ['clientes', f.anos, f.meses, f.vendedores, f.materiais, f.grupos, f.ufs, f.municipios] as const,
 
   materiais: (f: ReturnType<typeof useDebouncedFiltros>) =>
-    ['materiais', f.anos, f.meses, f.clientes, f.vendedores, f.grupos] as const,
+    ['materiais', f.anos, f.meses, f.clientes, f.vendedores, f.grupos, f.ufs, f.municipios] as const,
 
   grupos: (f: ReturnType<typeof useDebouncedFiltros>) =>
-    ['grupos', f.anos, f.meses, f.clientes, f.vendedores] as const,
+    ['grupos', f.anos, f.meses, f.clientes, f.vendedores, f.ufs, f.municipios] as const,
 
   vendedores: (f: ReturnType<typeof useDebouncedFiltros>) =>
-    ['vendedores', f.anos, f.meses, f.clientes, f.materiais, f.grupos] as const,
+    ['vendedores', f.anos, f.meses, f.clientes, f.materiais, f.grupos, f.ufs, f.municipios] as const,
 }
 
 export function useKpiSummary() {
@@ -104,7 +102,7 @@ export function useFaturamentoTodosMeses(enabled: boolean) {
   const f = useDebouncedFiltros()
   return useQuery({
     ...BASE,
-    queryKey: ['todos-meses', f.anos, f.clientes, f.vendedores, f.materiais, f.grupos],
+    queryKey: ['todos-meses', f.anos, f.clientes, f.vendedores, f.materiais, f.grupos, f.ufs, f.municipios],
     queryFn:  () => fetchFaturamentoTodosMeses(f),
     enabled,
   })
@@ -113,17 +111,17 @@ export function useMapaFaturamento() {
   const f = useDebouncedFiltros()
   return useQuery({
     ...BASE,
-    queryKey: ['mapa', f.anos, f.meses, f.clientes, f.vendedores, f.materiais, f.grupos],
+    queryKey: ['mapa', f.anos, f.meses, f.clientes, f.vendedores, f.materiais, f.grupos, f.ufs, f.municipios],
     queryFn: () => fetchMapaFaturamento(f),
   })
 }
 
-export function useUltimaAtualizacao() {
-  return useQuery({
-    queryKey: ['ultima-atualizacao'],
-    queryFn: fetchUltimaAtualizacao,
-    staleTime: 1000 * 60 * 10,
-    gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: false,
-  })
-}
+// export function useUltimaAtualizacao() {
+//   return useQuery({
+//     queryKey: ['ultima-atualizacao'],
+//     queryFn: fetchUltimaAtualizacao,
+//     staleTime: 1000 * 60 * 10,
+//     gcTime: 1000 * 60 * 30,
+//     refetchOnWindowFocus: false,
+//   })
+// }

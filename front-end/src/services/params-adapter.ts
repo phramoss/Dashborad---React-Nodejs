@@ -30,6 +30,12 @@ export function toApiParams(filtros: FiltroDashboard): ApiQueryParams {
   // ✅ Envia meses selecionados para o back-end
   if (filtros.meses.length > 0)       params.meses        = filtros.meses.join(',')
 
+  // ✅ Envia UFs selecionadas via clique no mapa
+  if (filtros.ufs.length > 0)         params.uf           = filtros.ufs.join(',')
+
+  // ✅ Envia municípios selecionados via clique no mapa
+  if (filtros.municipios.length > 0)  params.municipio    = filtros.municipios.join(',')
+
   return params
 }
 

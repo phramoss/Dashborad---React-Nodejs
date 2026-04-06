@@ -71,6 +71,53 @@
   font-family: 'IBM Plex Sans', sans-serif !important;
 }
 
+/* ─── Leaflet popup dark theme ────────────────────────────── */
+.leaflet-popup-dark .leaflet-popup-content-wrapper {
+  background: #0E1120;
+  border: 1px solid #2D3554;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  color: #c9c9c9;
+  padding: 0;
+}
+.leaflet-popup-dark .leaflet-popup-content {
+  margin: 0;
+}
+.leaflet-popup-dark .leaflet-popup-tip {
+  background: #0E1120;
+  border: 1px solid #2D3554;
+  border-top: none;
+  border-left: none;
+}
+.leaflet-popup-dark .leaflet-popup-close-button {
+  color: #8892B0 !important;
+  font-size: 18px;
+  top: 6px !important;
+  right: 8px !important;
+}
+.leaflet-popup-dark .leaflet-popup-close-button:hover {
+  color: #00D4AA !important;
+}
+
+/* Ajusta controles do Leaflet para tema dark */
+.leaflet-control-zoom a {
+  background: #1e2235 !important;
+  color: #c9c9c9 !important;
+  border-color: #2D3554 !important;
+}
+.leaflet-control-zoom a:hover {
+  background: #2D3554 !important;
+  color: #00D4AA !important;
+}
+.leaflet-control-attribution {
+  background: rgba(14, 17, 32, 0.7) !important;
+  color: #8892B0 !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #00D4AA !important;
+}
+
 /* Page entry animation */
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(12px); }

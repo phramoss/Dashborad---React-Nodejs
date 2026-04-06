@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useFaturamentoVendedor } from '@/hooks/useDashboardData'
-import { useFiltrosStore } from '@/store/filtros.store'
+import { useFiltrosStore, useFilteredVendedores } from '@/store/filtros.store'
 import type { FaturamentoVendedor } from '@/types'
 import { formatCurrency, cn } from '@/lib/utils'
 
@@ -79,7 +79,8 @@ function VendedorCard({
 // ─── Lista de vendedores ──────────────────────────────────────────────────────
 const VendedoresList = memo(function VendedoresList() {
   const { data, isLoading } = useFaturamentoVendedor()
-  const { filtros, toggleVendedor } = useFiltrosStore()
+  const activeVendedores = useFilteredVendedores()
+  const toggleVendedor = useFiltrosStore(s => s.toggleVendedor)
 
   const { sortedData, total } = useMemo(() => {
     const arr = (data ?? []) as FaturamentoVendedor[]
@@ -109,7 +110,7 @@ const VendedoresList = memo(function VendedoresList() {
       {sortedData.map((v, idx) => {
         const rank     = idx + 1
         const pct      = total > 0 ? (v.faturamento / total) * 100 : 0
-        const isActive = filtros.vendedores.length === 0 || filtros.vendedores.includes(v.vendedorId)
+        const isActive = activeVendedores.length === 0 || activeVendedores.includes(v.vendedorId)
         const isDimmed = !isActive
         return (
           <VendedorCard
@@ -126,7 +127,7 @@ const VendedoresList = memo(function VendedoresList() {
 
 // ─── Componente exportado ─────────────────────────────────────────────────────
 export const VendedoresChart = memo(function VendedoresChart() {
-  const { filtros } = useFiltrosStore()
+  const activeVendedoresOuter = useFilteredVendedores()
 
   return (
     <Card className="flex flex-col h-full">
@@ -137,7 +138,7 @@ export const VendedoresChart = memo(function VendedoresChart() {
         >
           Faturamento por Vendedor
         </p>
-        {filtros.vendedores.length > 0 && (
+        {activeVendedoresOuter.length > 0 && (
           <button
             onClick={() => useFiltrosStore.getState().resetFiltro('vendedores')}
             className="text-[9px] text-status-danger/70 hover:text-status-danger transition-colors"

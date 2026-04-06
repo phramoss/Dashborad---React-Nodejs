@@ -2,18 +2,19 @@ import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoMaterial } from '@/hooks/useDashboardData'
-import { useFiltrosStore } from '@/store/filtros.store'
+import { useFiltrosStore, useFilteredMateriais } from '@/store/filtros.store'
 import { formatCurrency, truncate } from '@/lib/utils'
 
 export const TopMateriaisChart = memo(function TopMateriaisChart() {
   const { data, isLoading, isError, refetch } = useFaturamentoMaterial()
-  const { filtros, toggleMaterial } = useFiltrosStore()
+  const activeMateriais = useFilteredMateriais()
+  const toggleMaterial = useFiltrosStore(s => s.toggleMaterial)
 
   const items  = useMemo(() => (data ?? []), [data])
   const total  = useMemo(() => items.reduce((s, d) => s + d.faturamento, 0), [items])
 
   const option = useMemo((): EChartsOption => {
-    const activeIds = filtros.materiais
+    const activeIds = activeMateriais
     const max = Math.max(...items.map((d) => d.faturamento), 1)
 
     return {
@@ -76,7 +77,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
         },
       }],
     }
-  }, [items, filtros.materiais, total])
+  }, [items, activeMateriais, total])
 
   const BAR_HEIGHT = 28
   const chartInnerHeight = Math.max(items.length * BAR_HEIGHT + 8, 200)
@@ -92,7 +93,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
       onRetry={() => refetch()}
       height={chartInnerHeight}
       maxVisibleHeight={visibleHeight}
-      active={filtros.materiais.length > 0}
+      active={activeMateriais.length > 0}
       animationDelay={100}
       clickable
       onChartClick={(params) => {
