@@ -59,7 +59,7 @@ function buildFatFilters(qs) {
   const where  = []
   const params = []
 
-  addInFilter(where, params, 'COD_ESTAB', empresa, Number)
+  addInFilter(where, params, 'COD_EMPRESA', empresa, Number)
   addInFilter(where, params, 'COD_MA',    cod_ma,  Number)
   addDateRange(where, params, 'DATA_EMISAO', data_ini, data_fim)
 
@@ -374,7 +374,7 @@ router.get('/estoque/faturamento-matriz', async (req, res, next) => {
     if (req.query.drill_cod_cliente){ drill.push('FAT.COD_CLIENTE = ?');   params.push(Number(req.query.drill_cod_cliente)) }
 
     // BI_FATURAMENTO usa alias FAT pois pode ter JOINs
-    const fatWhere = [...where.map(c => c.replace(/^(COD_ESTAB|COD_MA|DATA_EMISAO)/, 'FAT.$1')), ...drill]
+    const fatWhere = [...where.map(c => c.replace(/^(COD_EMPRESA|COD_MA|DATA_EMISAO)/, 'FAT.$1')), ...drill]
     const w = fatWhere.length ? `WHERE ${fatWhere.join(' AND ')}` : ''
 
     let selectCols, groupBy, labelKey, valueKey
