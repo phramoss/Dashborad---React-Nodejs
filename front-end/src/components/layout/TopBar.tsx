@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { Bell, RefreshCw, Calendar, Menu } from 'lucide-react'
+import { Bell, RefreshCw, Menu } from 'lucide-react'
 import { useActiveCount, useResetFiltros } from '@/store/filtros.store'
 import { useGlobalLoading } from '@/hooks/useGlobalLoading'
 // import { useUltimaAtualizacao } from '@/hooks/useDashboardData'
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 const PAGE_TITLES: Record<string, { title: string; desc: string }> = {
   '/visao-geral': { title: 'Visão Geral', desc: 'Análise Comercial' },
   '/tendencias':  { title: 'Tendências',  desc: 'Evolução e projeções' },
+  '/estoque':     { title: 'Estoque',     desc: 'Disponíveis e Reservados'},
   '/clientes':    { title: 'Clientes',    desc: 'Base e performance' },
   '/produtos':    { title: 'Produtos',    desc: 'Catálogo e materiais' },
 }
