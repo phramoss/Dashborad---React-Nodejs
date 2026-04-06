@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useEstoqueFiltros } from '@/store/estoque.store'
+import { useEstoqueStore, useEstoqueFiltros } from '@/store/estoque.store'
 import {
   fetchEstoqueKpi,
   fetchEstoqueChapa,
@@ -8,12 +8,11 @@ import {
   fetchEstoqueFaturamentoMatriz,
   fetchEstoqueFiltrosDisponiveis,
 } from '@/services/estoque.service'
-import type { EstoqueFiltros } from '@/types'
+import type { EstoqueFiltros, EstoqueDrillState } from '@/types'
 
 // ─── Debounce dos filtros de estoque ─────────────────────────
 function shallowEqualEstoque(a: EstoqueFiltros, b: EstoqueFiltros): boolean {
   if (a.data_ini !== b.data_ini || a.data_fim !== b.data_fim) return false
-  if (a.materialFiltro !== b.materialFiltro) return false
   const arrKeys: (keyof EstoqueFiltros)[] = [
     'empresas', 'materiais', 'blocos', 'espessuras', 'industrializacao', 'situacao',
   ]
@@ -29,7 +28,7 @@ function shallowEqualEstoque(a: EstoqueFiltros, b: EstoqueFiltros): boolean {
 }
 
 export function useEstoqueDebouncedFiltros(delay = 300): EstoqueFiltros {
-  const filtros    = useEstoqueFiltros()
+  const filtros = useEstoqueFiltros()
   const [debounced, setDebounced] = useState<EstoqueFiltros>(filtros)
   const ref = useRef<EstoqueFiltros>(filtros)
 
@@ -58,13 +57,16 @@ const BASE = {
   },
 } as const
 
-// ─── Query keys ───────────────────────────────────────────────
-function qkEstoque(prefix: string, f: EstoqueFiltros) {
+function drillKey(drill: EstoqueDrillState) {
+  return [drill.nivel, ...drill.path.map(n => `${n.field}=${n.value}`)]
+}
+
+function qk(prefix: string, f: EstoqueFiltros, drill?: EstoqueDrillState) {
   return [
     prefix,
     f.empresas, f.materiais, f.blocos, f.espessuras,
     f.industrializacao, f.situacao, f.data_ini, f.data_fim,
-    f.materialFiltro,
+    ...(drill ? drillKey(drill) : []),
   ] as const
 }
 
@@ -73,35 +75,38 @@ export function useEstoqueKpi() {
   const f = useEstoqueDebouncedFiltros()
   return useQuery({
     ...BASE,
-    queryKey: qkEstoque('estoque-kpi', f),
+    queryKey: qk('estoque-kpi', f),
     queryFn:  () => fetchEstoqueKpi(f),
   })
 }
 
 export function useEstoqueChapa() {
-  const f = useEstoqueDebouncedFiltros()
+  const f     = useEstoqueDebouncedFiltros()
+  const drill = useEstoqueStore((s) => s.drillChapa)
   return useQuery({
     ...BASE,
-    queryKey: qkEstoque('estoque-chapa', f),
-    queryFn:  () => fetchEstoqueChapa(f),
+    queryKey: qk('estoque-chapa', f, drill),
+    queryFn:  () => fetchEstoqueChapa(f, drill),
   })
 }
 
 export function useEstoqueBloco() {
-  const f = useEstoqueDebouncedFiltros()
+  const f     = useEstoqueDebouncedFiltros()
+  const drill = useEstoqueStore((s) => s.drillBloco)
   return useQuery({
     ...BASE,
-    queryKey: qkEstoque('estoque-bloco', f),
-    queryFn:  () => fetchEstoqueBloco(f),
+    queryKey: qk('estoque-bloco', f, drill),
+    queryFn:  () => fetchEstoqueBloco(f, drill),
   })
 }
 
 export function useEstoqueFaturamentoMatriz() {
-  const f = useEstoqueDebouncedFiltros()
+  const f     = useEstoqueDebouncedFiltros()
+  const drill = useEstoqueStore((s) => s.drillFat)
   return useQuery({
     ...BASE,
-    queryKey: qkEstoque('estoque-matriz', f),
-    queryFn:  () => fetchEstoqueFaturamentoMatriz(f),
+    queryKey: qk('estoque-matriz', f, drill),
+    queryFn:  () => fetchEstoqueFaturamentoMatriz(f, drill),
   })
 }
 

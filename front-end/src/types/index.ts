@@ -120,45 +120,68 @@ export interface EstoqueKpi {
   cavaletes:  number
 }
 
+// Linha genérica retornada pelos endpoints de tabela (drill-down)
 export interface EstoqueTableRow {
-  codMa:    number
-  material: string
+  label:    string           // texto exibido
+  value:    string | number  // valor usado para drill e filtro
   metragem: number
   pc:       number
 }
 
 export interface EstoqueTableResult {
-  rows:   EstoqueTableRow[]
-  totais: { metragem: number; pc: number }
+  nivel:    number
+  maxNivel: number
+  rows:     EstoqueTableRow[]
+  totais:   { metragem: number; pc: number }
 }
 
+// Linha da matriz faturamento (pivot pelo frontend)
 export interface EstoqueMatrizRow {
-  codMa:      number
-  material:   string
+  label:      string
+  value:      string | number
   ano:        number
   mes:        number
   quantidade: number
   total:      number
 }
 
+export interface EstoqueMatrizResult {
+  nivel:    number
+  maxNivel: number
+  rows:     EstoqueMatrizRow[]
+}
+
 export interface EstoqueFiltrosDisponiveis {
-  empresas:    number[]
+  empresas:    { id: number; label: string }[]
   materiais:   { id: number; label: string }[]
   blocos:      number[]
   espessuras:  number[]
   composicoes: string[]
 }
 
+// Nó do breadcrumb de drill-down
+export interface EstoqueDrillNode {
+  nivel:  number
+  label:  string           // texto exibido no breadcrumb
+  field:  string           // nome do query param (e.g. 'drill_cod_ma')
+  value:  string | number  // valor a ser passado como param
+}
+
+export interface EstoqueDrillState {
+  nivel: number
+  path:  EstoqueDrillNode[]
+}
+
 export interface EstoqueFiltros {
-  empresas:        number[]
-  materiais:       number[]
-  blocos:          number[]
-  espessuras:      number[]
+  empresas:         number[]
+  materiais:        number[]
+  blocos:           number[]
+  espessuras:       number[]
   industrializacao: string[]
-  situacao:        string[]
-  data_ini:        string
-  data_fim:        string
-  materialFiltro:  number | null   // crossfilter por clique na tabela
+  situacao:         string[]
+  // período — apenas para estoque por faturamento
+  data_ini:         string
+  data_fim:         string
 }
 
 // ============================================================
