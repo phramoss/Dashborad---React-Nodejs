@@ -26,6 +26,7 @@ interface MultiSelectProps {
   placeholder?: string
   maxDisplay?: number
   loading?: boolean
+  triggerClassName?: string
 }
 
 // ID único por instância para isolar cliques fora do dropdown
@@ -39,6 +40,7 @@ export const MultiSelect = memo(function MultiSelect({
   placeholder = 'Todos',
   maxDisplay = 2,
   loading = false,
+  triggerClassName,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -141,6 +143,7 @@ export const MultiSelect = memo(function MultiSelect({
           open || hasSelection
             ? 'border-brand/50 bg-brand/5 text-text-primary'
             : 'border-surface-border bg-surface-light text-text-secondary hover:border-surface-border/80 hover:text-text-primary',
+          triggerClassName,
         )}
       >
         <span className="text-text-muted text-[11.5px] uppercase tracking-wider shrink-0">

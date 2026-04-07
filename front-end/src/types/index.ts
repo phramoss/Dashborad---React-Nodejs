@@ -179,6 +179,10 @@ export interface EstoqueFiltros {
   espessuras:       number[]
   industrializacao: string[]
   situacao:         string[]
+  grupos:           number[]   // COD_GRP — click filter nível 2 (Grupo)
+  chapas:           number[]   // COD_ESTQ — click filter nível 5 (Chapa)
+  lotes:            string[]   // LOTE — click filter nível 6 (Lote)
+  unidades:         string[]   // UNIDADE — click filter nível folha (Chapa/Bloco/FAT)
   // período — apenas para estoque por faturamento
   data_ini:         string
   data_fim:         string

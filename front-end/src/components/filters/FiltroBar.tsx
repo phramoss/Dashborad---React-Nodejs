@@ -108,14 +108,6 @@ const MobileDrawer = memo(function MobileDrawer({
         aria-hidden="true"
       />
 
-      {/*
-        ── Drawer ──────────────────────────────────────────────────────────
-        CHAVE DA CORREÇÃO:
-        O drawer em si é overflow-y:auto — é ele que faz o scroll vertical.
-        O conteúdo interno NÃO tem overflow restrito, então os dropdowns
-        position:absolute não são cortados pelo stacking context.
-        O header é sticky top-0 e o footer é sticky bottom-0.
-        ────────────────────────────────────────────────────────────────── */}
       <div
         role="dialog"
         aria-modal="true"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useEstoqueStore, useEstoqueFiltros } from '@/store/estoque.store'
 import {
   fetchEstoqueKpi,
@@ -49,13 +49,13 @@ const BASE = {
   staleTime:            1000 * 30,
   gcTime:               1000 * 60 * 5,
   refetchOnWindowFocus: false,
-  placeholderData:      (prev: unknown) => prev,
+  placeholderData:      keepPreviousData,
   retry: (count: number, err: unknown) => {
     const status = (err as { response?: { status: number } })?.response?.status
     if (status && status >= 400 && status < 500) return false
     return count < 2
   },
-} as const
+}
 
 function drillKey(drill: EstoqueDrillState) {
   return [drill.nivel, ...drill.path.map(n => `${n.field}=${n.value}`)]
@@ -107,6 +107,36 @@ export function useEstoqueFaturamentoMatriz() {
     ...BASE,
     queryKey: qk('estoque-matriz', f, drill),
     queryFn:  () => fetchEstoqueFaturamentoMatriz(f, drill),
+  })
+}
+
+// ─── Hooks para filhos inline (expansão hierárquica) ─────────
+// Estes hooks aceitam um drillState LOCAL (não do store global),
+// permitindo buscar filhos de uma linha específica sem alterar o drill global.
+
+export function useEstoqueTableChildren(
+  endpoint: 'chapa' | 'bloco',
+  localDrill: EstoqueDrillState,
+) {
+  const f = useEstoqueDebouncedFiltros()
+  return useQuery({
+    ...BASE,
+    queryKey: qk(`estoque-${endpoint}-child`, f, localDrill),
+    queryFn: () =>
+      endpoint === 'chapa'
+        ? fetchEstoqueChapa(f, localDrill)
+        : fetchEstoqueBloco(f, localDrill),
+    enabled: localDrill.nivel > 0 && localDrill.path.length > 0,
+  })
+}
+
+export function useEstoqueMatrizChildren(localDrill: EstoqueDrillState) {
+  const f = useEstoqueDebouncedFiltros()
+  return useQuery({
+    ...BASE,
+    queryKey: qk('estoque-fat-child', f, localDrill),
+    queryFn: () => fetchEstoqueFaturamentoMatriz(f, localDrill),
+    enabled: localDrill.nivel > 0 && localDrill.path.length > 0,
   })
 }
 

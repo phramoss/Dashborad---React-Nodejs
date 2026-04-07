@@ -28,7 +28,8 @@ const STOCK_SITUACAO  = `SITUACAO IN ('DISPONIVEL', 'RESERVADO')`
 
 // ─── Filtros de estoque (chapa/bloco/kpi) — sem período ──────
 function buildEstoqueFilters(qs) {
-  const { empresa, cod_ma, bloco, esp_lq, industrializacao, situacao } = qs
+  const { empresa, cod_ma, bloco, esp_lq, industrializacao, situacao,
+          cod_grp, cod_estq, lote, unidade } = qs
   const where  = []
   const params = []
 
@@ -36,7 +37,11 @@ function buildEstoqueFilters(qs) {
   addInFilter(where, params, 'COD_MA',        cod_ma,          Number)
   addInFilter(where, params, 'BLOCO',         bloco,           Number)
   addInFilter(where, params, 'SITUACAO',      situacao,        String)
+  addInFilter(where, params, 'COD_GRP',       cod_grp,         Number)
+  addInFilter(where, params, 'COD_ESTQ',      cod_estq,        Number)
   addStrInFilter(where, params, 'COMPOSICAO_MA', industrializacao)
+  addStrInFilter(where, params, 'LOTE',        lote)
+  addStrInFilter(where, params, 'UNIDADE',     unidade)
 
   if (esp_lq !== undefined && esp_lq !== null && esp_lq !== '') {
     const raw  = Array.isArray(esp_lq) ? esp_lq : String(esp_lq).split(',')
@@ -177,7 +182,7 @@ router.get('/estoque/chapa', async (req, res, next) => {
     if (req.query.drill_grp)     { drill.push('COD_GRP = ?');              params.push(Number(req.query.drill_grp)) }
     if (req.query.drill_esp)     { drill.push('CAST(ESP_LQ AS INTEGER) = ?'); params.push(Number(req.query.drill_esp)) }
     if (req.query.drill_ind)     { drill.push('COMPOSICAO_MA = ?');        params.push(String(req.query.drill_ind)) }
-    if (req.query.drill_chapa)   { drill.push('CHAPA = ?');                params.push(Number(req.query.drill_chapa)) }
+    if (req.query.drill_cod_estq) { drill.push('COD_ESTQ = ?');              params.push(Number(req.query.drill_cod_estq)) }
     if (req.query.drill_lote)    { drill.push('LOTE = ?');                 params.push(String(req.query.drill_lote)) }
 
     const extra = [...(req.query.situacao ? [] : [STOCK_SITUACAO]), `UNIDADE = 'M2'`, ...drill]
@@ -218,10 +223,10 @@ router.get('/estoque/chapa', async (req, res, next) => {
         orderBy    = 'metragem DESC'
         break
       case 5:
-        selectCols = `CHAPA`
-        groupBy    = `CHAPA`
-        labelKey   = 'CHAPA'; valueKey = 'CHAPA'
-        orderBy    = 'CHAPA'
+        selectCols = `COD_ESTQ, CHAPA`
+        groupBy    = `COD_ESTQ, CHAPA`
+        labelKey   = 'CHAPA'; valueKey = 'COD_ESTQ'
+        orderBy    = 'COD_ESTQ'
         break
       case 6:
         selectCols = `LOTE`
@@ -250,6 +255,7 @@ router.get('/estoque/chapa', async (req, res, next) => {
       FROM BI_ESTOQUE ${w}
       GROUP BY ${groupBy}
       ORDER BY ${orderBy}
+      ROWS 1 TO 1000
     `
     const rows = await query(sql, params)
 
@@ -330,6 +336,7 @@ router.get('/estoque/bloco', async (req, res, next) => {
       FROM BI_ESTOQUE ${w}
       GROUP BY ${groupBy}
       ORDER BY ${orderBy}
+      ROWS 1 TO 1000
     `
     const rows = await query(sql, params)
 
@@ -420,6 +427,7 @@ router.get('/estoque/faturamento-matriz', async (req, res, next) => {
                EXTRACT(YEAR  FROM FAT.DATA_EMISAO),
                EXTRACT(MONTH FROM FAT.DATA_EMISAO)
       ORDER BY dim_label, ano, mes
+      ROWS 1 TO 500
     `
     const rows = await query(sql, params)
 

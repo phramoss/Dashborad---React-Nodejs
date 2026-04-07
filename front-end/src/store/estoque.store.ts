@@ -35,6 +35,10 @@ export const DEFAULT_ESTOQUE_FILTROS: EstoqueFiltros = {
   espessuras:       [],
   industrializacao: [],
   situacao:         [],
+  grupos:           [],
+  chapas:           [],
+  lotes:            [],
+  unidades:         [],
   data_ini:         '',
   data_fim:         '',
 }

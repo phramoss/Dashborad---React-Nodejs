@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, useCallback, useEffect, Fragment } from 'react'
 import {
-  SlidersHorizontal, RefreshCw, Filter, ChevronRight,
-  TrendingDown, Grid3X3, Box, LayoutTemplate, ChevronsRight,
+  SlidersHorizontal, RefreshCw, Filter, ChevronRight, ChevronDown,
+  TrendingDown, Grid3X3, Box, LayoutTemplate,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -15,13 +15,18 @@ import {
   useEstoqueBloco,
   useEstoqueFaturamentoMatriz,
   useEstoqueFiltrosDisponiveis,
+  useEstoqueTableChildren,
+  useEstoqueMatrizChildren,
 } from '@/hooks/useEstoqueData'
 import type {
   EstoqueTableResult,
-  EstoqueMatrizResult, EstoqueDrillState, EstoqueDrillNode,
+  EstoqueMatrizResult,
+  EstoqueDrillState,
+  EstoqueDrillNode,
+  EstoqueFiltros,
 } from '@/types'
 
-// ─── Helpers ─────────────────────────────────────────────────
+// ─── Helpers de formatação ────────────────────────────────────
 const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 const fmtNum = (v: number) =>
@@ -33,19 +38,110 @@ const fmtInt = (v: number) =>
 const sanitize = (s: string) =>
   s.replace(/\?/g, '').trim()
 
-// Mapeamento de campo → label de coluna por nivel para cada tabela
+// ─── Hierarquia de campos por tabela ─────────────────────────
 const CHAPA_HEADERS = [
   'Material', 'Bloco', 'Grupo', 'Espessura', 'Industrialização', 'Chapa', 'Lote', 'Unidade',
 ]
+// drill_chapa → drill_cod_estq: agora usa COD_ESTQ como chave interna
 const CHAPA_FIELDS = [
-  'drill_cod_ma','drill_bloco','drill_grp','drill_esp','drill_ind','drill_chapa','drill_lote',
+  'drill_cod_ma', 'drill_bloco', 'drill_grp', 'drill_esp',
+  'drill_ind', 'drill_cod_estq', 'drill_lote',
+  // nível 7 (Unidade) não tem campo de drill (folha)
 ]
-const BLOCO_HEADERS  = ['Material', 'Bloco', 'Unidade']
-const BLOCO_FIELDS   = ['drill_cod_ma', 'drill_bloco']
-const FAT_HEADERS    = ['Material', 'Unidade', 'Cliente', 'Pedido']
-const FAT_FIELDS     = ['drill_cod_ma', 'drill_unidade', 'drill_cod_cliente']
+const BLOCO_HEADERS = ['Material', 'Bloco', 'Unidade']
+const BLOCO_FIELDS  = ['drill_cod_ma', 'drill_bloco']
+  // nível 2 (Unidade) folha — sem campo de drill
 
-// ─── Componente KPI card (horizontal) ────────────────────────
+const FAT_HEADERS = ['Material', 'Unidade', 'Cliente', 'Pedido']
+const FAT_FIELDS  = ['drill_cod_ma', 'drill_unidade', 'drill_cod_cliente']
+  // nível 3 (Pedido) folha — sem campo de drill
+
+// ─── Mapeamento campo drill → campo filtros store ─────────────
+// drill_cod_cliente: caso especial — extrai material do path
+const FIELD_TO_FILTRO: Partial<Record<string, keyof EstoqueFiltros>> = {
+  'drill_cod_ma':   'materiais',
+  'drill_bloco':    'blocos',
+  'drill_grp':      'grupos',
+  'drill_esp':      'espessuras',
+  'drill_ind':      'industrializacao',
+  'drill_cod_estq': 'chapas',
+  'drill_lote':     'lotes',
+  'drill_unidade':  'unidades',
+}
+const STRING_FILTROS = new Set<keyof EstoqueFiltros>(['industrializacao', 'lotes', 'unidades'])
+
+// ─── Helpers de drill inline ──────────────────────────────────
+function buildRowKey(path: EstoqueDrillNode[], level: number, value: string | number): string {
+  const p = path.map(n => `${n.nivel}:${n.value}`).join('/')
+  return p ? `${p}/${level}:${value}` : `${level}:${value}`
+}
+
+function buildChildDrill(
+  path: EstoqueDrillNode[],
+  level: number,
+  field: string,
+  value: string | number,
+  label: string,
+): EstoqueDrillState {
+  const node: EstoqueDrillNode = { nivel: level, label, field, value }
+  return { nivel: level + 1, path: [...path, node] }
+}
+
+// Verifica se uma linha está ativa no store de filtros
+function isRowActive(
+  level: number,
+  value: string | number,
+  field: string | undefined,
+  path: EstoqueDrillNode[],
+  filtros: EstoqueFiltros,
+  isFat = false,
+): boolean {
+  // FAT: Cliente → verifica se o material ancestral está ativo
+  if (isFat && (field === 'drill_cod_cliente' || (!field && level >= 3))) {
+    const matNode = path.find(n => n.field === 'drill_cod_ma')
+    if (!matNode) return false
+    return filtros.materiais.includes(Number(matNode.value))
+  }
+  // Nível folha sem campo definido → unidades (para CHAPA/BLOCO)
+  const key: keyof EstoqueFiltros | undefined = field
+    ? FIELD_TO_FILTRO[field]
+    : (isFat ? undefined : 'unidades')
+  if (!key) return false
+  const arr = filtros[key] as (string | number)[]
+  const v = STRING_FILTROS.has(key) ? String(value) : Number(value)
+  return arr.includes(v as never)
+}
+
+// Aplica toggle de filtro no store
+function applyClickFilter(
+  level: number,
+  value: string | number,
+  field: string | undefined,
+  path: EstoqueDrillNode[],
+  filtros: EstoqueFiltros,
+  setFiltros: (p: Partial<EstoqueFiltros>) => void,
+  isFat = false,
+): void {
+  // FAT Cliente/Pedido → extrai material do path e togla em filtros.materiais
+  if (isFat && (field === 'drill_cod_cliente' || (!field && level >= 3))) {
+    const matNode = path.find(n => n.field === 'drill_cod_ma')
+    if (!matNode) return
+    const matId = Number(matNode.value)
+    const arr = filtros.materiais
+    setFiltros({ materiais: arr.includes(matId) ? arr.filter(v => v !== matId) : [...arr, matId] })
+    return
+  }
+  const key: keyof EstoqueFiltros | undefined = field
+    ? FIELD_TO_FILTRO[field]
+    : (isFat ? undefined : 'unidades')
+  if (!key) return
+  const isStr = STRING_FILTROS.has(key)
+  const v = isStr ? String(value) : Number(value)
+  const arr = filtros[key] as (string | number)[]
+  setFiltros({ [key]: arr.includes(v as never) ? arr.filter(x => x !== v) : [...arr, v] } as Partial<EstoqueFiltros>)
+}
+
+// ─── KPI card ─────────────────────────────────────────────────
 interface KpiBlockProps {
   title:     string
   value:     string
@@ -87,104 +183,166 @@ const KpiBlock = memo(function KpiBlock({
   )
 })
 
-// ─── Breadcrumb de drill-down ─────────────────────────────────
-interface DrillBreadcrumbProps {
-  drill:   EstoqueDrillState
-  headers: string[]
-  onGoto:  (nivel: number) => void
+// ─── InlineRows — filhos recursivos de HierarchyTable ─────────
+interface InlineRowsProps {
+  endpoint:       'chapa' | 'bloco'
+  parentDrill:    EstoqueDrillState
+  depth:          number
+  fields:         string[]
+  maxNivel:       number
+  expandedKeys:   Set<string>
+  onToggleExpand: (key: string) => void
+  filtros:        EstoqueFiltros
+  onFilter:       (p: Partial<EstoqueFiltros>) => void
 }
 
-function DrillBreadcrumb({ drill, headers, onGoto }: DrillBreadcrumbProps) {
-  if (!drill.path.length) return null
+function InlineRows({
+  endpoint, parentDrill, depth, fields, maxNivel,
+  expandedKeys, onToggleExpand, filtros, onFilter,
+}: InlineRowsProps) {
+  const { data, isLoading } = useEstoqueTableChildren(endpoint, parentDrill)
+  const currentLevel = parentDrill.nivel
+  const rows         = data?.rows ?? []
+  const currentField = fields[currentLevel]
+  const canExpand    = currentLevel < maxNivel && !!fields[currentLevel]
+
+  if (isLoading) {
+    return (
+      <div className="px-3 py-1.5" style={{ paddingLeft: 12 + depth * 16 }}>
+        <Skeleton className="h-4 w-full mb-1" />
+        <Skeleton className="h-4 w-3/4" />
+      </div>
+    )
+  }
+
+  if (!rows.length) return null
+
   return (
-    <div className="flex items-center gap-1 flex-wrap px-3 py-1.5 bg-brand/5 border-b border-brand/20">
-      <button
-        onClick={() => onGoto(0)}
-        className="text-[10px] text-brand hover:underline font-medium"
-      >
-        {headers[0]}
-      </button>
-      {drill.path.map((node) => (
-        <Fragment key={node.nivel}>
-          <ChevronRight size={10} className="text-text-muted shrink-0" />
-          <button
-            onClick={() => onGoto(node.nivel + 1)}
-            className="text-[10px] text-brand hover:underline font-medium max-w-[120px] truncate"
-            title={String(node.label)}
-          >
-            {sanitize(String(node.label))}
-          </button>
-        </Fragment>
-      ))}
-      {drill.nivel < (drill.path.length > 0 ? drill.path[drill.path.length - 1].nivel + 2 : 1) && (
-        <span className="text-[10px] text-text-muted ml-1">→ {headers[drill.nivel] ?? ''}</span>
-      )}
-    </div>
+    <>
+      {rows.map(row => {
+        const key        = buildRowKey(parentDrill.path, currentLevel, row.value)
+        const isExpanded = expandedKeys.has(key)
+        const isSelected = isRowActive(currentLevel, row.value, currentField, parentDrill.path, filtros)
+
+        return (
+          <Fragment key={key}>
+            <div
+              className={cn(
+                'grid grid-cols-[1fr_88px_52px] border-b border-surface-border/20',
+                'hover:bg-surface-light/40 transition-colors',
+                isSelected && 'bg-brand/10 border-l-2 border-l-brand',
+              )}
+            >
+              {/* Label com ícone e indentação */}
+              <div
+                className="flex items-center gap-1 min-w-0 py-1"
+                style={{ paddingLeft: 8 + depth * 16 }}
+              >
+                <button
+                  type="button"
+                  className="shrink-0 w-4 h-4 flex items-center justify-center"
+                  onClick={() => { if (canExpand) onToggleExpand(key) }}
+                  tabIndex={canExpand ? 0 : -1}
+                  aria-label={isExpanded ? 'Recolher' : 'Expandir'}
+                >
+                  {canExpand ? (
+                    isExpanded
+                      ? <ChevronDown size={10} className="text-brand/70" />
+                      : <ChevronRight size={10} className="text-text-muted hover:text-brand transition-colors" />
+                  ) : (
+                    <span className="w-1.5 h-1.5 rounded-full bg-text-muted/25 block" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex-1 text-[11px] text-left truncate pr-1',
+                    isSelected ? 'text-brand font-medium' : 'text-text-secondary',
+                  )}
+                  onClick={() => applyClickFilter(currentLevel, row.value, currentField, parentDrill.path, filtros, onFilter)}
+                  title={row.label}
+                >
+                  {sanitize(row.label)}
+                </button>
+              </div>
+              <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-2">
+                {fmtNum(row.metragem)}
+              </span>
+              <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-1">
+                {fmtInt(row.pc)}
+              </span>
+            </div>
+
+            {isExpanded && canExpand && (
+              <InlineRows
+                endpoint={endpoint}
+                parentDrill={buildChildDrill(parentDrill.path, currentLevel, currentField, row.value, row.label)}
+                depth={depth + 1}
+                fields={fields}
+                maxNivel={maxNivel}
+                expandedKeys={expandedKeys}
+                onToggleExpand={onToggleExpand}
+                filtros={filtros}
+                onFilter={onFilter}
+              />
+            )}
+          </Fragment>
+        )
+      })}
+    </>
   )
 }
 
-// ─── Tabela com drill-down ────────────────────────────────────
-interface DrillTableProps {
+// ─── HierarchyTable ───────────────────────────────────────────
+interface HierarchyTableProps {
   title:    string
   headers:  string[]
   fields:   string[]
+  endpoint: 'chapa' | 'bloco'
   data?:    EstoqueTableResult
   loading?: boolean
-  drill:    EstoqueDrillState
-  onDrillInto: (node: EstoqueDrillNode) => void
-  onDrillOut:  (nivel: number) => void
+  filtros:  EstoqueFiltros
+  onFilter: (p: Partial<EstoqueFiltros>) => void
 }
 
-const DrillTable = memo(function DrillTable({
-  title, headers, fields, data, loading, drill, onDrillInto, onDrillOut,
-}: DrillTableProps) {
-  const rows     = data?.rows     ?? []
-  const totais   = data?.totais
-  const maxNivel = data?.maxNivel ?? headers.length - 1
-  const canDrill = drill.nivel < maxNivel
+const HierarchyTable = memo(function HierarchyTable({
+  title, headers, fields, endpoint, data, loading, filtros, onFilter,
+}: HierarchyTableProps) {
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
 
-  const colHeader = headers[drill.nivel] ?? 'Item'
+  const toggleExpand = useCallback((key: string) => {
+    setExpandedKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const rows       = data?.rows     ?? []
+  const totais     = data?.totais
+  const maxNivel   = data?.maxNivel ?? fields.length
+  const level0Field = fields[0]
+  const canExpand0 = maxNivel > 0 && !!level0Field
 
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
-      {/* Título + nível atual */}
-      <div className="px-3 py-2 border-b border-surface-border shrink-0 flex items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest truncate">
+      {/* Título */}
+      <div className="px-3 py-2 border-b border-surface-border shrink-0">
+        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
           {title}
         </p>
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Botão voltar ao topo */}
-          {drill.nivel > 0 && (
-            <button
-              onClick={() => onDrillOut(0)}
-              className="text-[10px] text-brand/70 hover:text-brand flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-brand/10 transition-colors"
-              title="Voltar ao início"
-            >
-              ↑ {headers[0]}
-            </button>
-          )}
-          <span className="text-[9px] text-text-muted bg-surface-light px-1.5 py-0.5 rounded">
-            N{drill.nivel + 1}/{maxNivel + 1}
-          </span>
-        </div>
       </div>
 
-      {/* Breadcrumb */}
-      <DrillBreadcrumb drill={drill} headers={headers} onGoto={onDrillOut} />
-
       {/* Cabeçalho fixo */}
-      <div className={cn(
-        'grid gap-1 px-3 py-1.5 bg-surface-light border-b border-surface-border shrink-0',
-        canDrill ? 'grid-cols-[16px_1fr_80px_52px]' : 'grid-cols-[1fr_80px_52px]',
-      )}>
-        {canDrill && <span />}
-        <span className="text-[10px] text-text-muted uppercase tracking-wider">{colHeader}</span>
-        <span className="text-[10px] text-text-muted uppercase tracking-wider text-right">Metragem</span>
-        <span className="text-[10px] text-text-muted uppercase tracking-wider text-right">PC</span>
+      <div className="grid grid-cols-[1fr_88px_52px] px-3 py-1.5 bg-surface-light border-b border-surface-border shrink-0">
+        <span className="text-[10px] text-text-muted uppercase tracking-wider pl-5">{headers[0]}</span>
+        <span className="text-[10px] text-text-muted uppercase tracking-wider text-right pr-2">Metragem</span>
+        <span className="text-[10px] text-text-muted uppercase tracking-wider text-right pr-1">PC</span>
       </div>
 
       {/* Corpo */}
-      <div className="overflow-y-auto flex-1" style={{ maxHeight: 300 }}>
+      <div className="overflow-y-auto flex-1" style={{ maxHeight: 340 }}>
         {loading ? (
           <div className="flex flex-col gap-1 p-2">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
@@ -194,56 +352,84 @@ const DrillTable = memo(function DrillTable({
             <p className="text-[11px] text-text-muted">Sem dados</p>
           </div>
         ) : (
-          rows.map((r, idx) => (
-            <div
-              key={`${r.value}-${idx}`}
-              className={cn(
-                'grid gap-1 px-3 py-1 border-b border-surface-border/30',
-                canDrill ? 'grid-cols-[16px_1fr_80px_52px]' : 'grid-cols-[1fr_80px_52px]',
-                idx % 2 === 1 && 'bg-surface-light/20',
-              )}
-            >
-              {canDrill && (
-                <button
-                  onClick={() => onDrillInto({
-                    nivel: drill.nivel,
-                    label: r.label,
-                    field: fields[drill.nivel],
-                    value: r.value,
-                  })}
-                  className="flex items-center justify-center text-text-muted hover:text-brand transition-colors"
-                  title={`Detalhar ${colHeader}: ${r.label}`}
+          rows.map((row, idx) => {
+            const key        = buildRowKey([], 0, row.value)
+            const isExpanded = expandedKeys.has(key)
+            const isSelected = isRowActive(0, row.value, level0Field, [], filtros)
+
+            return (
+              <Fragment key={key}>
+                <div
+                  className={cn(
+                    'grid grid-cols-[1fr_88px_52px] border-b border-surface-border/30',
+                    'hover:bg-surface-light/40 transition-colors',
+                    idx % 2 === 1 && !isSelected && 'bg-surface-light/15',
+                    isSelected && 'bg-brand/10 border-l-2 border-l-brand',
+                  )}
                 >
-                  <ChevronsRight size={11} />
-                </button>
-              )}
-              <span className="text-[11px] text-text-secondary truncate pr-1 self-center"
-                title={r.label}>
-                {sanitize(r.label)}
-              </span>
-              <span className="text-[11px] text-text-primary tabular-nums text-right self-center">
-                {fmtNum(r.metragem)}
-              </span>
-              <span className="text-[11px] text-text-primary tabular-nums text-right self-center">
-                {fmtInt(r.pc)}
-              </span>
-            </div>
-          ))
+                  <div className="flex items-center gap-1 min-w-0 py-1 pl-2">
+                    <button
+                      type="button"
+                      className="shrink-0 w-4 h-4 flex items-center justify-center"
+                      onClick={() => { if (canExpand0) toggleExpand(key) }}
+                      tabIndex={canExpand0 ? 0 : -1}
+                      aria-label={isExpanded ? 'Recolher' : 'Expandir'}
+                    >
+                      {canExpand0 ? (
+                        isExpanded
+                          ? <ChevronDown size={10} className="text-brand/70" />
+                          : <ChevronRight size={10} className="text-text-muted hover:text-brand transition-colors" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-text-muted/25 block" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        'flex-1 text-[11px] text-left truncate pr-1',
+                        isSelected ? 'text-brand font-medium' : 'text-text-secondary',
+                      )}
+                      onClick={() => applyClickFilter(0, row.value, level0Field, [], filtros, onFilter)}
+                      title={row.label}
+                    >
+                      {sanitize(row.label)}
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-2">
+                    {fmtNum(row.metragem)}
+                  </span>
+                  <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-1">
+                    {fmtInt(row.pc)}
+                  </span>
+                </div>
+
+                {isExpanded && canExpand0 && level0Field && (
+                  <InlineRows
+                    endpoint={endpoint}
+                    parentDrill={buildChildDrill([], 0, level0Field, row.value, row.label)}
+                    depth={1}
+                    fields={fields}
+                    maxNivel={maxNivel}
+                    expandedKeys={expandedKeys}
+                    onToggleExpand={toggleExpand}
+                    filtros={filtros}
+                    onFilter={onFilter}
+                  />
+                )}
+              </Fragment>
+            )
+          })
         )}
       </div>
 
-      {/* Totais */}
+      {/* Total */}
       {!loading && totais && (
-        <div className={cn(
-          'grid gap-1 px-3 py-1.5 bg-surface-light border-t border-surface-border shrink-0',
-          canDrill ? 'grid-cols-[16px_1fr_80px_52px]' : 'grid-cols-[1fr_80px_52px]',
-        )}>
-          {canDrill && <span />}
-          <span className="text-[11px] font-semibold text-text-secondary">Total</span>
-          <span className="text-[11px] font-semibold text-text-primary tabular-nums text-right">
+        <div className="grid grid-cols-[1fr_88px_52px] px-3 py-1.5 bg-surface-light border-t border-surface-border shrink-0">
+          <span className="text-[11px] font-semibold text-text-secondary pl-5">Total</span>
+          <span className="text-[11px] font-semibold text-text-primary tabular-nums text-right pr-2">
             {fmtNum(totais.metragem)}
           </span>
-          <span className="text-[11px] font-semibold text-text-primary tabular-nums text-right">
+          <span className="text-[11px] font-semibold text-text-primary tabular-nums text-right pr-1">
             {fmtInt(totais.pc)}
           </span>
         </div>
@@ -252,48 +438,186 @@ const DrillTable = memo(function DrillTable({
   )
 })
 
-// ─── Matriz Faturamento com drill-down ───────────────────────
-interface MatrizProps {
-  data?:    EstoqueMatrizResult
-  loading?: boolean
-  drill:    EstoqueDrillState
-  onDrillInto: (node: EstoqueDrillNode) => void
-  onDrillOut:  (nivel: number) => void
+// ─── InlineMatrizRows — filhos recursivos de HierarchyMatriz ──
+interface InlineMatrizRowsProps {
+  parentDrill:    EstoqueDrillState
+  periodos:       string[]
+  depth:          number
+  maxNivel:       number
+  expandedKeys:   Set<string>
+  onToggleExpand: (key: string) => void
+  filtros:        EstoqueFiltros
+  onFilter:       (p: Partial<EstoqueFiltros>) => void
+  COL_DIM:        number
 }
 
-const EstoqueMatriz = memo(function EstoqueMatriz({
-  data, loading, drill, onDrillInto, onDrillOut,
-}: MatrizProps) {
+function InlineMatrizRows({
+  parentDrill, periodos, depth, maxNivel,
+  expandedKeys, onToggleExpand, filtros, onFilter, COL_DIM,
+}: InlineMatrizRowsProps) {
+  const { data, isLoading } = useEstoqueMatrizChildren(parentDrill)
+  const currentLevel = parentDrill.nivel
+  const rows         = data?.rows ?? []
+  const currentField = FAT_FIELDS[currentLevel]
+  const canExpand    = currentLevel < maxNivel && !!currentField
+
+  const { itemMap, pivot } = useMemo(() => {
+    if (!rows.length) return { itemMap: new Map<string, string>(), pivot: {} as Record<string, Record<string, { quantidade: number; total: number }>> }
+    const im = new Map<string, string>()
+    rows.forEach(r => { if (!im.has(String(r.value))) im.set(String(r.value), r.label) })
+    const pv: Record<string, Record<string, { quantidade: number; total: number }>> = {}
+    rows.forEach(r => {
+      const pk = `${r.ano}-${String(r.mes).padStart(2, '0')}`
+      const ik = String(r.value)
+      if (!pv[ik]) pv[ik] = {}
+      pv[ik][pk] = { quantidade: r.quantidade, total: r.total }
+    })
+    return { itemMap: im, pivot: pv }
+  }, [rows])
+
+  if (isLoading) {
+    return (
+      <tr>
+        <td colSpan={2 + periodos.length * 2}>
+          <div className="px-3 py-1.5" style={{ paddingLeft: 12 + depth * 14 }}>
+            <Skeleton className="h-4 w-full" />
+          </div>
+        </td>
+      </tr>
+    )
+  }
+
+  if (!itemMap.size) return null
+
+  return (
+    <>
+      {Array.from(itemMap.entries()).map(([value, label]) => {
+        const key        = buildRowKey(parentDrill.path, currentLevel, value)
+        const isExpanded = expandedKeys.has(key)
+        const isSelected = isRowActive(currentLevel, value, currentField, parentDrill.path, filtros, true)
+
+        return (
+          <Fragment key={key}>
+            <tr className={cn(
+              'border-b border-surface-border/30 hover:bg-surface-light/40 transition-colors',
+              isSelected && 'bg-brand/10',
+            )}>
+              {/* Expand + Label */}
+              <td
+                colSpan={2}
+                className={cn('border-r border-surface-border', isSelected && 'border-l-2 border-l-brand')}
+                style={{ maxWidth: COL_DIM + 24, paddingLeft: 4 + depth * 14 }}
+              >
+                <div className="flex items-center gap-1 min-w-0 py-1">
+                  <button
+                    type="button"
+                    className="shrink-0 w-4 h-4 flex items-center justify-center"
+                    onClick={() => { if (canExpand) onToggleExpand(key) }}
+                    tabIndex={canExpand ? 0 : -1}
+                  >
+                    {canExpand ? (
+                      isExpanded
+                        ? <ChevronDown size={10} className="text-brand/70" />
+                        : <ChevronRight size={10} className="text-text-muted hover:text-brand transition-colors" />
+                    ) : (
+                      <span className="w-1.5 h-1.5 rounded-full bg-text-muted/25 block" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex-1 text-[11px] text-left truncate pr-2',
+                      isSelected ? 'text-brand font-medium' : 'text-text-secondary',
+                    )}
+                    onClick={() => applyClickFilter(currentLevel, value, currentField, parentDrill.path, filtros, onFilter, true)}
+                    title={label}
+                  >
+                    {sanitize(label)}
+                  </button>
+                </div>
+              </td>
+              {/* Células de período */}
+              {periodos.map(p => {
+                const cell = pivot[value]?.[p]
+                return (
+                  <Fragment key={p}>
+                    <td className="px-2 py-1 text-right tabular-nums text-[11px] text-text-primary">
+                      {cell ? fmtNum(cell.quantidade) : ''}
+                    </td>
+                    <td className="px-2 py-1 text-right tabular-nums text-[11px] text-text-primary border-r border-surface-border/30">
+                      {cell ? fmtNum(cell.total) : ''}
+                    </td>
+                  </Fragment>
+                )
+              })}
+            </tr>
+
+            {isExpanded && canExpand && currentField && (
+              <InlineMatrizRows
+                parentDrill={buildChildDrill(parentDrill.path, currentLevel, currentField, value, label)}
+                periodos={periodos}
+                depth={depth + 1}
+                maxNivel={maxNivel}
+                expandedKeys={expandedKeys}
+                onToggleExpand={onToggleExpand}
+                filtros={filtros}
+                onFilter={onFilter}
+                COL_DIM={COL_DIM}
+              />
+            )}
+          </Fragment>
+        )
+      })}
+    </>
+  )
+}
+
+// ─── HierarchyMatriz ─────────────────────────────────────────
+interface HierarchyMatrizProps {
+  data?:    EstoqueMatrizResult
+  loading?: boolean
+  filtros:  EstoqueFiltros
+  onFilter: (p: Partial<EstoqueFiltros>) => void
+}
+
+const HierarchyMatriz = memo(function HierarchyMatriz({
+  data, loading, filtros, onFilter,
+}: HierarchyMatrizProps) {
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
+
+  const toggleExpand = useCallback((key: string) => {
+    setExpandedKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
   const rows     = data?.rows     ?? []
   const maxNivel = data?.maxNivel ?? 3
-  const canDrill = drill.nivel < maxNivel
-  const colHeader = FAT_HEADERS[drill.nivel] ?? 'Item'
 
   const { periodos, items, pivot, totaisPeriodo } = useMemo(() => {
-    if (!rows.length) return { periodos: [], items: [], pivot: {}, totaisPeriodo: {} }
+    if (!rows.length) return { periodos: [] as string[], items: [] as { value: string; label: string }[], pivot: {} as Record<string, Record<string, { quantidade: number; total: number }>>, totaisPeriodo: {} as Record<string, { quantidade: number; total: number }> }
 
     const periodSet = new Set<string>()
     rows.forEach(r => periodSet.add(`${r.ano}-${String(r.mes).padStart(2, '0')}`))
     const periodos = Array.from(periodSet).sort()
 
     const itemMap = new Map<string, string>()
-    rows.forEach(r => {
-      const key = String(r.value)
-      if (!itemMap.has(key)) itemMap.set(key, r.label)
-    })
+    rows.forEach(r => { if (!itemMap.has(String(r.value))) itemMap.set(String(r.value), r.label) })
     const items = Array.from(itemMap.entries()).map(([value, label]) => ({ value, label }))
 
     const pivot: Record<string, Record<string, { quantidade: number; total: number }>> = {}
     const totaisPeriodo: Record<string, { quantidade: number; total: number }> = {}
-
     rows.forEach(r => {
-      const pKey = `${r.ano}-${String(r.mes).padStart(2, '0')}`
-      const iKey = String(r.value)
-      if (!pivot[iKey]) pivot[iKey] = {}
-      pivot[iKey][pKey] = { quantidade: r.quantidade, total: r.total }
-      if (!totaisPeriodo[pKey]) totaisPeriodo[pKey] = { quantidade: 0, total: 0 }
-      totaisPeriodo[pKey].quantidade += r.quantidade
-      totaisPeriodo[pKey].total      += r.total
+      const pk = `${r.ano}-${String(r.mes).padStart(2, '0')}`
+      const ik = String(r.value)
+      if (!pivot[ik]) pivot[ik] = {}
+      pivot[ik][pk] = { quantidade: r.quantidade, total: r.total }
+      if (!totaisPeriodo[pk]) totaisPeriodo[pk] = { quantidade: 0, total: 0 }
+      totaisPeriodo[pk].quantidade += r.quantidade
+      totaisPeriodo[pk].total      += r.total
     })
 
     return { periodos, items, pivot, totaisPeriodo }
@@ -304,8 +628,11 @@ const EstoqueMatriz = memo(function EstoqueMatriz({
     return `${MESES_ABREV[Number(mes) - 1] ?? mes} de ${ano}`
   }
 
-  const COL_DIM = 180
-  const COL_VAL = 100
+  const COL_DIM     = 156
+  const COL_EXPAND  = 24
+  const COL_VAL     = 96
+  const level0Field = FAT_FIELDS[0]
+  const canExpand0  = maxNivel > 0 && !!level0Field
 
   if (loading) {
     return (
@@ -324,48 +651,36 @@ const EstoqueMatriz = memo(function EstoqueMatriz({
 
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
-      {/* Título */}
-      <div className="px-3 py-2 border-b border-surface-border shrink-0 flex items-center justify-between gap-2">
+      <div className="px-3 py-2 border-b border-surface-border shrink-0">
         <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
           Estoque por Faturamento
         </p>
-        <div className="flex items-center gap-1 shrink-0">
-          {drill.nivel > 0 && (
-            <button
-              onClick={() => onDrillOut(0)}
-              className="text-[10px] text-brand/70 hover:text-brand flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-brand/10 transition-colors"
-            >
-              ↑ {FAT_HEADERS[0]}
-            </button>
-          )}
-          <span className="text-[9px] text-text-muted bg-surface-light px-1.5 py-0.5 rounded">
-            N{drill.nivel + 1}/{maxNivel + 1}
-          </span>
-        </div>
       </div>
-
-      {/* Breadcrumb */}
-      <DrillBreadcrumb drill={drill} headers={FAT_HEADERS} onGoto={onDrillOut} />
 
       {rows.length === 0 ? (
         <div className="flex items-center justify-center h-20">
           <p className="text-[11px] text-text-muted">Sem dados de faturamento no período</p>
         </div>
       ) : (
-        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 380 }}>
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 400 }}>
           <table
             className="border-collapse text-[11px]"
-            style={{ minWidth: COL_DIM + periodos.length * COL_VAL * 2 + 20 }}
+            style={{ minWidth: COL_EXPAND + COL_DIM + periodos.length * COL_VAL * 2 + 20 }}
           >
             <thead className="sticky top-0 z-10 bg-surface-light">
               <tr>
-                {canDrill && <th rowSpan={2} style={{ width: 20 }} className="border-b border-r border-surface-border" />}
+                {/* Expand col + Material col — rowspan 2 */}
+                <th
+                  rowSpan={2}
+                  style={{ width: COL_EXPAND, minWidth: COL_EXPAND }}
+                  className="border-b border-surface-border"
+                />
                 <th
                   rowSpan={2}
                   className="text-left px-3 py-1.5 text-text-muted font-medium border-b border-r border-surface-border"
                   style={{ minWidth: COL_DIM, width: COL_DIM }}
                 >
-                  {colHeader}
+                  {FAT_HEADERS[0]}
                 </th>
                 {periodos.map(p => (
                   <th
@@ -381,66 +696,97 @@ const EstoqueMatriz = memo(function EstoqueMatriz({
               <tr>
                 {periodos.map(p => (
                   <Fragment key={p}>
-                    <th className="text-right px-2 py-1 text-text-muted font-medium border-b border-surface-border whitespace-nowrap"
-                      style={{ minWidth: COL_VAL }}>Quantidade</th>
-                    <th className="text-right px-2 py-1 text-text-muted font-medium border-b border-r border-surface-border whitespace-nowrap"
-                      style={{ minWidth: COL_VAL }}>Total Faturado</th>
+                    <th className="text-right px-2 py-1 text-text-muted font-medium border-b border-surface-border whitespace-nowrap" style={{ minWidth: COL_VAL }}>
+                      Quantidade
+                    </th>
+                    <th className="text-right px-2 py-1 text-text-muted font-medium border-b border-r border-surface-border whitespace-nowrap" style={{ minWidth: COL_VAL }}>
+                      Total Faturado
+                    </th>
                   </Fragment>
                 ))}
               </tr>
             </thead>
 
             <tbody>
-              {items.map((item, idx) => (
-                <tr
-                  key={item.value}
-                  className={cn(
-                    'border-b border-surface-border/40 hover:bg-surface-light transition-colors',
-                    idx % 2 === 1 && 'bg-surface-light/20',
-                  )}
-                >
-                  {canDrill && (
-                    <td className="px-1">
-                      <button
-                        onClick={() => onDrillInto({
-                          nivel: drill.nivel,
-                          label: item.label,
-                          field: FAT_FIELDS[drill.nivel],
-                          value: item.value,
-                        })}
-                        className="flex items-center justify-center text-text-muted hover:text-brand transition-colors"
-                        title={`Detalhar: ${item.label}`}
-                      >
-                        <ChevronsRight size={11} />
-                      </button>
-                    </td>
-                  )}
-                  <td
-                    className="px-3 py-1 text-text-secondary border-r border-surface-border truncate"
-                    style={{ maxWidth: COL_DIM }}
-                    title={item.label}
-                  >
-                    {sanitize(item.label)}
-                  </td>
-                  {periodos.map(p => {
-                    const cell = pivot[item.value]?.[p]
-                    return (
-                      <Fragment key={p}>
-                        <td className="px-2 py-1 text-right tabular-nums text-text-primary">
-                          {cell ? fmtNum(cell.quantidade) : ''}
-                        </td>
-                        <td className="px-2 py-1 text-right tabular-nums text-text-primary border-r border-surface-border/30">
-                          {cell ? fmtNum(cell.total) : ''}
-                        </td>
-                      </Fragment>
-                    )
-                  })}
-                </tr>
-              ))}
+              {items.map((item, idx) => {
+                const key        = buildRowKey([], 0, item.value)
+                const isExpanded = expandedKeys.has(key)
+                const isSelected = isRowActive(0, item.value, level0Field, [], filtros, true)
 
-              {/* Total rodapé */}
+                return (
+                  <Fragment key={item.value}>
+                    <tr className={cn(
+                      'border-b border-surface-border/40 hover:bg-surface-light/40 transition-colors',
+                      idx % 2 === 1 && !isSelected && 'bg-surface-light/15',
+                      isSelected && 'bg-brand/10',
+                    )}>
+                      {/* Expand icon */}
+                      <td
+                        className="px-1 text-center cursor-pointer"
+                        onClick={() => { if (canExpand0) toggleExpand(key) }}
+                      >
+                        {canExpand0 ? (
+                          isExpanded
+                            ? <ChevronDown size={10} className="text-brand/70 mx-auto" />
+                            : <ChevronRight size={10} className="text-text-muted hover:text-brand mx-auto transition-colors" />
+                        ) : (
+                          <span className="w-1.5 h-1.5 rounded-full bg-text-muted/25 inline-block" />
+                        )}
+                      </td>
+                      {/* Label */}
+                      <td
+                        className={cn(
+                          'px-3 py-1 border-r border-surface-border cursor-pointer',
+                          isSelected && 'border-l-2 border-l-brand',
+                        )}
+                        style={{ maxWidth: COL_DIM }}
+                        onClick={() => applyClickFilter(0, item.value, level0Field, [], filtros, onFilter, true)}
+                        title={item.label}
+                      >
+                        <span className={cn(
+                          'text-[11px] block truncate',
+                          isSelected ? 'text-brand font-medium' : 'text-text-secondary',
+                        )}>
+                          {sanitize(item.label)}
+                        </span>
+                      </td>
+                      {/* Células de período */}
+                      {periodos.map(p => {
+                        const cell = pivot[item.value]?.[p]
+                        return (
+                          <Fragment key={p}>
+                            <td className="px-2 py-1 text-right tabular-nums text-text-primary">
+                              {cell ? fmtNum(cell.quantidade) : ''}
+                            </td>
+                            <td className="px-2 py-1 text-right tabular-nums text-text-primary border-r border-surface-border/30">
+                              {cell ? fmtNum(cell.total) : ''}
+                            </td>
+                          </Fragment>
+                        )
+                      })}
+                    </tr>
+
+                    {/* Filhos inline */}
+                    {isExpanded && level0Field && (
+                      <InlineMatrizRows
+                        parentDrill={buildChildDrill([], 0, level0Field, item.value, item.label)}
+                        periodos={periodos}
+                        depth={1}
+                        maxNivel={maxNivel}
+                        expandedKeys={expandedKeys}
+                        onToggleExpand={toggleExpand}
+                        filtros={filtros}
+                        onFilter={onFilter}
+                        COL_DIM={COL_DIM}
+                      />
+                    )}
+                  </Fragment>
+                )
+              })}
+
+              {/* Linha de total */}
               <tr className="bg-surface-light border-t-2 border-surface-border font-semibold sticky bottom-0">
-                {canDrill && <td />}
+                <td />
                 <td className="px-3 py-1.5 text-text-secondary border-r border-surface-border">Total</td>
                 {periodos.map(p => {
                   const t = totaisPeriodo[p]
@@ -465,20 +811,18 @@ const EstoqueMatriz = memo(function EstoqueMatriz({
 })
 
 // ─── Filtros inline (desktop) ─────────────────────────────────
+const TRIGGER_LG = 'h-9 text-[12px] min-w-[130px]'
+
 function FiltrosInline() {
   const { filtros, setFiltros, resetFiltros } = useEstoqueStore()
   const { data: opts, isLoading } = useEstoqueFiltrosDisponiveis()
 
-  const empresaOpts = useMemo(
-    () => opts?.empresas ?? [],
-    [opts?.empresas],
-  )
-  const matOpts = useMemo(() => opts?.materiais ?? [], [opts?.materiais])
-  const espOpts = useMemo(
+  const empresaOpts = useMemo(() => opts?.empresas ?? [], [opts?.empresas])
+  const matOpts     = useMemo(() => opts?.materiais ?? [], [opts?.materiais])
+  const espOpts     = useMemo(
     () => (opts?.espessuras ?? []).map(e => ({ id: e, label: `${e} cm` })),
     [opts?.espessuras],
   )
-  // Industrialização: strings mapeadas para IDs numéricos (1-based index)
   const indOpts = useMemo(
     () => (opts?.composicoes ?? []).map((c, i) => ({ id: i + 1, label: c })),
     [opts?.composicoes],
@@ -497,7 +841,6 @@ function FiltrosInline() {
     },
     [opts?.composicoes, setFiltros],
   )
-
   const blocoOpts = useMemo(
     () => (opts?.blocos ?? []).map(b => ({ id: b, label: String(b) })),
     [opts?.blocos],
@@ -506,6 +849,7 @@ function FiltrosInline() {
   const activeCount =
     filtros.empresas.length + filtros.materiais.length + filtros.blocos.length +
     filtros.espessuras.length + filtros.industrializacao.length + filtros.situacao.length +
+    filtros.grupos.length + filtros.chapas.length + filtros.lotes.length + filtros.unidades.length +
     (filtros.data_ini ? 1 : 0) + (filtros.data_fim ? 1 : 0)
 
   const today = new Date().toISOString().slice(0, 10)
@@ -514,7 +858,7 @@ function FiltrosInline() {
     <div className="hidden sm:flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-1.5 text-text-muted mr-1 shrink-0">
         <SlidersHorizontal size={14} />
-        <span className="text-[11px] uppercase tracking-widest font-medium">Filtros</span>
+        <span className="text-[12px] uppercase tracking-widest font-medium">Filtros</span>
       </div>
 
       <div className="w-px h-5 bg-surface-border shrink-0" />
@@ -525,6 +869,7 @@ function FiltrosInline() {
         selected={filtros.empresas}
         onChange={(ids) => setFiltros({ empresas: ids as number[] })}
         loading={isLoading}
+        triggerClassName={TRIGGER_LG}
       />
       <MultiSelect
         label="Espessura"
@@ -532,6 +877,7 @@ function FiltrosInline() {
         selected={filtros.espessuras}
         onChange={(ids) => setFiltros({ espessuras: ids as number[] })}
         loading={isLoading}
+        triggerClassName={TRIGGER_LG}
       />
       <MultiSelect
         label="Industrialização"
@@ -539,6 +885,7 @@ function FiltrosInline() {
         selected={indSelected}
         onChange={handleIndChange}
         loading={isLoading}
+        triggerClassName={TRIGGER_LG}
       />
       <MultiSelect
         label="Material"
@@ -546,6 +893,7 @@ function FiltrosInline() {
         selected={filtros.materiais}
         onChange={(ids) => setFiltros({ materiais: ids as number[] })}
         loading={isLoading}
+        triggerClassName={TRIGGER_LG}
       />
       <MultiSelect
         label="Bloco"
@@ -553,33 +901,34 @@ function FiltrosInline() {
         selected={filtros.blocos}
         onChange={(ids) => setFiltros({ blocos: ids as number[] })}
         loading={isLoading}
+        triggerClassName={TRIGGER_LG}
       />
 
       <div className="w-px h-5 bg-surface-border shrink-0" />
 
       {/* Período — apenas para faturamento */}
-      <div className="flex items-center gap-1">
-        <span className="text-[10px] text-text-muted uppercase tracking-wider shrink-0">Período</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] text-text-muted uppercase tracking-wider shrink-0">Período</span>
         <input
           type="date"
           value={filtros.data_ini}
           max={today}
           onChange={(e) => setFiltros({ data_ini: e.target.value })}
           className={cn(
-            'h-8 px-2 rounded-lg text-[11.5px] w-[130px]',
+            'h-9 px-2.5 rounded-lg text-[12px] w-[138px]',
             'bg-surface-light border border-surface-border text-text-primary',
             'focus:outline-none focus:border-brand/50 transition-colors',
             filtros.data_ini && 'border-brand/40 bg-brand/5',
           )}
         />
-        <span className="text-[10px] text-text-muted">até</span>
+        <span className="text-[11px] text-text-muted">até</span>
         <input
           type="date"
           value={filtros.data_fim}
           max={today}
           onChange={(e) => setFiltros({ data_fim: e.target.value })}
           className={cn(
-            'h-8 px-2 rounded-lg text-[11.5px] w-[130px]',
+            'h-9 px-2.5 rounded-lg text-[12px] w-[138px]',
             'bg-surface-light border border-surface-border text-text-primary',
             'focus:outline-none focus:border-brand/50 transition-colors',
             filtros.data_fim && 'border-brand/40 bg-brand/5',
@@ -591,7 +940,7 @@ function FiltrosInline() {
         <button
           onClick={resetFiltros}
           className={cn(
-            'ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium',
+            'ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium',
             'text-status-danger/80 hover:text-status-danger',
             'bg-status-danger/5 hover:bg-status-danger/10',
             'border border-status-danger/20 hover:border-status-danger/40',
@@ -648,6 +997,7 @@ const MobileDrawer = memo(function MobileDrawer({ open, onClose }: MobileDrawerP
   const activeCount =
     filtros.empresas.length + filtros.materiais.length + filtros.blocos.length +
     filtros.espessuras.length + filtros.industrializacao.length +
+    filtros.grupos.length + filtros.chapas.length + filtros.lotes.length + filtros.unidades.length +
     (filtros.data_ini ? 1 : 0) + (filtros.data_fim ? 1 : 0)
 
   const today = new Date().toISOString().slice(0, 10)
@@ -706,17 +1056,14 @@ const MobileDrawer = memo(function MobileDrawer({ open, onClose }: MobileDrawerP
           <MultiSelect label="Espessura" options={espOpts} selected={filtros.espessuras}
             onChange={(ids) => setFiltros({ espessuras: ids as number[] })} loading={isLoading} />
           <MultiSelect label="Industrialização" options={indOpts}
-            selected={indSelected}
-            onChange={handleIndChangeMobile} loading={isLoading} />
+            selected={indSelected} onChange={handleIndChangeMobile} loading={isLoading} />
           <MultiSelect label="Material" options={matOpts} selected={filtros.materiais}
             onChange={(ids) => setFiltros({ materiais: ids as number[] })} loading={isLoading} />
           <MultiSelect label="Bloco" options={blocoOpts} selected={filtros.blocos}
             onChange={(ids) => setFiltros({ blocos: ids as number[] })} loading={isLoading} />
 
           <div className="w-full h-px bg-surface-border my-1" />
-          <p className="text-[9px] text-text-muted uppercase tracking-widest">
-            Período (faturamento)
-          </p>
+          <p className="text-[9px] text-text-muted uppercase tracking-widest">Período (faturamento)</p>
           <input type="date" value={filtros.data_ini} max={today}
             onChange={(e) => setFiltros({ data_ini: e.target.value })}
             className="w-full px-2.5 py-1.5 rounded-lg text-[11px] bg-surface border border-surface-border text-text-primary focus:outline-none focus:border-brand/50" />
@@ -748,18 +1095,12 @@ const MobileDrawer = memo(function MobileDrawer({ open, onClose }: MobileDrawerP
 export function EstoquePage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const {
-    filtros,
-    drillChapa, drillBloco, drillFat,
-    drillIntoChapa, drillOutChapa,
-    drillIntoBloco, drillOutBloco,
-    drillIntoFat,   drillOutFat,
-    resetFiltros,
-  } = useEstoqueStore()
+  const { filtros, setFiltros } = useEstoqueStore()
 
   const activeCount =
     filtros.empresas.length + filtros.materiais.length + filtros.blocos.length +
     filtros.espessuras.length + filtros.industrializacao.length + filtros.situacao.length +
+    filtros.grupos.length + filtros.chapas.length + filtros.lotes.length + filtros.unidades.length +
     (filtros.data_ini ? 1 : 0) + (filtros.data_fim ? 1 : 0)
 
   const { data: kpiData,    isLoading: kpiLoading   } = useEstoqueKpi()
@@ -770,7 +1111,7 @@ export function EstoquePage() {
   return (
     <div className="flex flex-col gap-4 max-w-[1800px] mx-auto pb-8">
 
-      {/* ── Filtros (topo, estilo Visão Geral) ────────────── */}
+      {/* ── Filtros ─────────────────────────────────────────── */}
       <ErrorBoundary>
         <div className="hidden sm:block rounded-xl bg-surface border border-surface-border px-4 py-3 card-glow">
           <FiltrosInline />
@@ -780,7 +1121,7 @@ export function EstoquePage() {
         </div>
       </ErrorBoundary>
 
-      {/* ── Cards KPI (topo, em linha) ─────────────────────── */}
+      {/* ── Cards KPI ───────────────────────────────────────── */}
       <ErrorBoundary>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <KpiBlock
@@ -816,49 +1157,48 @@ export function EstoquePage() {
         </div>
       </ErrorBoundary>
 
-      {/* ── Tabelas CHAPA + BLOCO ─────────────────────────── */}
+      {/* ── Tabelas CHAPA + BLOCO ────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <ErrorBoundary>
-          <DrillTable
+          <HierarchyTable
             title="Chapa / Recortado"
             headers={CHAPA_HEADERS}
             fields={CHAPA_FIELDS}
+            endpoint="chapa"
             data={chapaData}
             loading={chapaLoading}
-            drill={drillChapa}
-            onDrillInto={drillIntoChapa}
-            onDrillOut={drillOutChapa}
+            filtros={filtros}
+            onFilter={setFiltros}
           />
         </ErrorBoundary>
         <ErrorBoundary>
-          <DrillTable
+          <HierarchyTable
             title="Bloco"
             headers={BLOCO_HEADERS}
             fields={BLOCO_FIELDS}
+            endpoint="bloco"
             data={blocoData}
             loading={blocoLoading}
-            drill={drillBloco}
-            onDrillInto={drillIntoBloco}
-            onDrillOut={drillOutBloco}
+            filtros={filtros}
+            onFilter={setFiltros}
           />
         </ErrorBoundary>
       </div>
 
-      {/* ── Matriz faturamento ────────────────────────────── */}
+      {/* ── Matriz faturamento ───────────────────────────────── */}
       <ErrorBoundary>
-        <EstoqueMatriz
+        <HierarchyMatriz
           data={matrizData}
           loading={matrizLoading}
-          drill={drillFat}
-          onDrillInto={drillIntoFat}
-          onDrillOut={drillOutFat}
+          filtros={filtros}
+          onFilter={setFiltros}
         />
       </ErrorBoundary>
 
-      {/* ── Drawer mobile ─────────────────────────────────── */}
+      {/* ── Drawer mobile ───────────────────────────────────── */}
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* ── Botão flutuante mobile ────────────────────────── */}
+      {/* ── Botão flutuante mobile ───────────────────────────── */}
       <button
         onClick={() => setDrawerOpen(v => !v)}
         className={cn(
