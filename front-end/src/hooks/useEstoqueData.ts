@@ -8,7 +8,7 @@ import {
   fetchEstoqueFaturamentoMatriz,
   fetchEstoqueFiltrosDisponiveis,
 } from '@/services/estoque.service'
-import type { EstoqueFiltros, EstoqueDrillState } from '@/types'
+import type { EstoqueFiltros, EstoqueDrillState, MatrizSort } from '@/types'
 
 // ─── Debounce dos filtros de estoque ─────────────────────────
 function shallowEqualEstoque(a: EstoqueFiltros, b: EstoqueFiltros): boolean {
@@ -100,13 +100,13 @@ export function useEstoqueBloco() {
   })
 }
 
-export function useEstoqueFaturamentoMatriz() {
+export function useEstoqueFaturamentoMatriz(sort?: MatrizSort) {
   const f     = useEstoqueDebouncedFiltros()
   const drill = useEstoqueStore((s) => s.drillFat)
   return useQuery({
     ...BASE,
-    queryKey: qk('estoque-matriz', f, drill),
-    queryFn:  () => fetchEstoqueFaturamentoMatriz(f, drill),
+    queryKey: [...qk('estoque-matriz', f, drill), sort?.col ?? '', sort?.dir ?? ''],
+    queryFn:  () => fetchEstoqueFaturamentoMatriz(f, drill, sort),
   })
 }
 

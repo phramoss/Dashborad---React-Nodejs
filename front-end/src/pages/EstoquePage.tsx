@@ -1,6 +1,6 @@
 import { memo, useMemo, useState, useCallback, useEffect, Fragment } from 'react'
 import {
-  SlidersHorizontal, RefreshCw, Filter, ChevronRight, ChevronDown,
+  SlidersHorizontal, RefreshCw, Filter, ChevronRight, ChevronDown, ChevronUp,
   TrendingDown, Grid3X3, Box, LayoutTemplate,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -24,6 +24,7 @@ import type {
   EstoqueDrillState,
   EstoqueDrillNode,
   EstoqueFiltros,
+  MatrizSort,
 } from '@/types'
 
 // ─── Helpers de formatação ────────────────────────────────────
@@ -309,6 +310,8 @@ const HierarchyTable = memo(function HierarchyTable({
   title, headers, fields, endpoint, data, loading, filtros, onFilter,
 }: HierarchyTableProps) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
+  const [sortCol, setSortCol] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null)
 
   const toggleExpand = useCallback((key: string) => {
     setExpandedKeys(prev => {
@@ -319,11 +322,40 @@ const HierarchyTable = memo(function HierarchyTable({
     })
   }, [])
 
-  const rows       = data?.rows     ?? []
+  const handleSort = useCallback((col: string) => {
+    setSortCol(prev => {
+      if (prev === col) {
+        setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc')
+        return col
+      }
+      setSortDir('asc')
+      return col
+    })
+  }, [])
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortCol !== col) return <span className="inline-block w-2.5" />
+    if (sortDir === 'asc')  return <ChevronUp   size={9} className="inline-block text-brand" />
+    if (sortDir === 'desc') return <ChevronDown  size={9} className="inline-block text-brand" />
+    return <span className="inline-block w-2.5" />
+  }
+
+  const rawRows    = data?.rows     ?? []
   const totais     = data?.totais
   const maxNivel   = data?.maxNivel ?? fields.length
   const level0Field = fields[0]
   const canExpand0 = maxNivel > 0 && !!level0Field
+
+  const rows = useMemo(() => {
+    if (!sortCol || !sortDir) return rawRows
+    return [...rawRows].sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1
+      if (sortCol === 'label')    return dir * a.label.localeCompare(b.label)
+      if (sortCol === 'metragem') return dir * (a.metragem - b.metragem)
+      if (sortCol === 'pc')       return dir * (a.pc - b.pc)
+      return 0
+    })
+  }, [rawRows, sortCol, sortDir])
 
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
@@ -336,9 +368,18 @@ const HierarchyTable = memo(function HierarchyTable({
 
       {/* Cabeçalho fixo */}
       <div className="grid grid-cols-[1fr_88px_52px] px-3 py-1.5 bg-surface-light border-b border-surface-border shrink-0">
-        <span className="text-[10px] text-text-muted uppercase tracking-wider pl-5">{headers[0]}</span>
-        <span className="text-[10px] text-text-muted uppercase tracking-wider text-right pr-2">Metragem</span>
-        <span className="text-[10px] text-text-muted uppercase tracking-wider text-right pr-1">PC</span>
+        <button type="button" onClick={() => handleSort('label')}
+          className="flex items-center gap-0.5 text-[10px] text-text-muted uppercase tracking-wider pl-5 hover:text-text-secondary">
+          {headers[0]} <SortIcon col="label" />
+        </button>
+        <button type="button" onClick={() => handleSort('metragem')}
+          className="flex items-center justify-end gap-0.5 text-[10px] text-text-muted uppercase tracking-wider pr-2 hover:text-text-secondary">
+          <SortIcon col="metragem" /> Metragem
+        </button>
+        <button type="button" onClick={() => handleSort('pc')}
+          className="flex items-center justify-end gap-0.5 text-[10px] text-text-muted uppercase tracking-wider pr-1 hover:text-text-secondary">
+          <SortIcon col="pc" /> PC
+        </button>
       </div>
 
       {/* Corpo */}
@@ -505,8 +546,8 @@ function InlineMatrizRows({
               {/* Expand + Label */}
               <td
                 colSpan={2}
-                className={cn('border-r border-surface-border', isSelected && 'border-l-2 border-l-brand')}
-                style={{ maxWidth: COL_DIM + 24, paddingLeft: 4 + depth * 14 }}
+                className={cn('sticky z-[5] bg-surface border-r border-surface-border', isSelected && 'border-l-2 border-l-brand')}
+                style={{ maxWidth: COL_DIM + 24, paddingLeft: 4 + depth * 14, left: 0 }}
               >
                 <div className="flex items-center gap-1 min-w-0 py-1">
                   <button
@@ -574,16 +615,41 @@ function InlineMatrizRows({
 
 // ─── HierarchyMatriz ─────────────────────────────────────────
 interface HierarchyMatrizProps {
-  data?:    EstoqueMatrizResult
-  loading?: boolean
-  filtros:  EstoqueFiltros
-  onFilter: (p: Partial<EstoqueFiltros>) => void
+  data?:         EstoqueMatrizResult
+  loading?:      boolean
+  filtros:       EstoqueFiltros
+  onFilter:      (p: Partial<EstoqueFiltros>) => void
+  onSortChange?: (sort: MatrizSort) => void
 }
 
 const HierarchyMatriz = memo(function HierarchyMatriz({
-  data, loading, filtros, onFilter,
+  data, loading, filtros, onFilter, onSortChange,
 }: HierarchyMatrizProps) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
+  const [sortCol, setSortCol] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null)
+
+  useEffect(() => {
+    onSortChange?.({ col: sortCol, dir: sortDir })
+  }, [sortCol, sortDir, onSortChange])
+
+  const handleSort = useCallback((col: string) => {
+    setSortCol(prev => {
+      if (prev !== col) { setSortDir('asc'); return col }
+      setSortDir(d => { if (d === 'asc') return 'desc'; setSortCol(null); return null })
+      return prev
+    })
+  }, [])
+
+  const SortIcon = ({ col }: { col: string }) => {
+    const active = sortCol === col
+    return (
+      <span className="inline-flex flex-col ml-1 gap-px align-middle">
+        <ChevronUp   size={8} className={active && sortDir === 'asc'  ? 'text-brand' : 'opacity-20'} />
+        <ChevronDown size={8} className={active && sortDir === 'desc' ? 'text-brand' : 'opacity-20'} />
+      </span>
+    )
+  }
 
   const toggleExpand = useCallback((key: string) => {
     setExpandedKeys(prev => {
@@ -665,42 +731,47 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
         <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 400 }}>
           <table
             className="border-collapse text-[11px]"
-            style={{ minWidth: COL_EXPAND + COL_DIM + periodos.length * COL_VAL * 2 + 20 }}
+            style={{ minWidth: COL_EXPAND + COL_DIM + periodos.length * COL_VAL * 2 + COL_VAL + 20 }}
           >
             <thead className="sticky top-0 z-10 bg-surface-light">
               <tr>
-                {/* Expand col + Material col — rowspan 2 */}
+                {/* Expand col + Material col — rowspan 2, sticky left */}
                 <th
                   rowSpan={2}
-                  style={{ width: COL_EXPAND, minWidth: COL_EXPAND }}
-                  className="border-b border-surface-border"
+                  style={{ width: COL_EXPAND, minWidth: COL_EXPAND, left: 0 }}
+                  className="sticky z-20 bg-surface-light border-b border-surface-border"
                 />
                 <th
                   rowSpan={2}
-                  className="text-left px-3 py-1.5 text-text-muted font-medium border-b border-r border-surface-border"
-                  style={{ minWidth: COL_DIM, width: COL_DIM }}
+                  className="sticky z-20 bg-surface-light text-left px-3 py-1.5 text-text-muted font-medium border-b border-r border-surface-border cursor-pointer select-none hover:text-text-primary transition-colors"
+                  style={{ minWidth: COL_DIM, width: COL_DIM, left: COL_EXPAND }}
+                  onClick={() => handleSort('nome')}
                 >
-                  {FAT_HEADERS[0]}
+                  {FAT_HEADERS[0]} <SortIcon col="nome" />
                 </th>
                 {periodos.map(p => (
                   <th
                     key={p}
                     colSpan={2}
-                    className="text-center px-2 py-1.5 text-text-muted font-medium border-b border-r border-surface-border capitalize whitespace-nowrap"
+                    className="text-center px-2 py-1.5 text-text-muted font-medium border-b border-r border-surface-border capitalize whitespace-nowrap cursor-pointer select-none hover:text-text-primary transition-colors"
                     style={{ minWidth: COL_VAL * 2 }}
+                    onClick={() => handleSort(p)}
                   >
-                    {periodoLabel(p)}
+                    {periodoLabel(p)} <SortIcon col={p} />
                   </th>
                 ))}
+                <th rowSpan={2} className="text-right px-2 py-1.5 text-text-muted font-medium border-b border-l border-surface-border whitespace-nowrap cursor-pointer select-none hover:text-text-primary transition-colors" style={{ minWidth: COL_VAL }} onClick={() => handleSort('total')}>
+                  Total <SortIcon col="total" />
+                </th>
               </tr>
               <tr>
                 {periodos.map(p => (
                   <Fragment key={p}>
                     <th className="text-right px-2 py-1 text-text-muted font-medium border-b border-surface-border whitespace-nowrap" style={{ minWidth: COL_VAL }}>
-                      Quantidade
+                      Qtde
                     </th>
                     <th className="text-right px-2 py-1 text-text-muted font-medium border-b border-r border-surface-border whitespace-nowrap" style={{ minWidth: COL_VAL }}>
-                      Total Faturado
+                      Total
                     </th>
                   </Fragment>
                 ))}
@@ -712,6 +783,7 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
                 const key        = buildRowKey([], 0, item.value)
                 const isExpanded = expandedKeys.has(key)
                 const isSelected = isRowActive(0, item.value, level0Field, [], filtros, true)
+                const rowTotal   = periodos.reduce((s, p) => s + (pivot[item.value]?.[p]?.total ?? 0), 0)
 
                 return (
                   <Fragment key={item.value}>
@@ -720,9 +792,10 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
                       idx % 2 === 1 && !isSelected && 'bg-surface-light/15',
                       isSelected && 'bg-brand/10',
                     )}>
-                      {/* Expand icon */}
+                      {/* Expand icon — sticky left */}
                       <td
-                        className="px-1 text-center cursor-pointer"
+                        className="sticky z-[5] bg-surface px-1 text-center cursor-pointer"
+                        style={{ left: 0 }}
                         onClick={() => { if (canExpand0) toggleExpand(key) }}
                       >
                         {canExpand0 ? (
@@ -733,13 +806,13 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
                           <span className="w-1.5 h-1.5 rounded-full bg-text-muted/25 inline-block" />
                         )}
                       </td>
-                      {/* Label */}
+                      {/* Label — sticky left */}
                       <td
                         className={cn(
-                          'px-3 py-1 border-r border-surface-border cursor-pointer',
+                          'sticky z-[5] bg-surface px-3 py-1 border-r border-surface-border cursor-pointer',
                           isSelected && 'border-l-2 border-l-brand',
                         )}
-                        style={{ maxWidth: COL_DIM }}
+                        style={{ maxWidth: COL_DIM, left: COL_EXPAND }}
                         onClick={() => applyClickFilter(0, item.value, level0Field, [], filtros, onFilter, true)}
                         title={item.label}
                       >
@@ -755,15 +828,18 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
                         const cell = pivot[item.value]?.[p]
                         return (
                           <Fragment key={p}>
-                            <td className="px-2 py-1 text-right tabular-nums text-text-primary">
+                            <td className="px-2 py-1 text-right tabular-nums text-[11px] text-text-primary">
                               {cell ? fmtNum(cell.quantidade) : ''}
                             </td>
-                            <td className="px-2 py-1 text-right tabular-nums text-text-primary border-r border-surface-border/30">
+                            <td className="px-2 py-1 text-right tabular-nums text-[11px] text-text-primary border-r border-surface-border/30">
                               {cell ? fmtNum(cell.total) : ''}
                             </td>
                           </Fragment>
                         )
                       })}
+                      <td className="px-2 py-1 text-right tabular-nums text-[11px] text-text-primary font-medium border-l border-surface-border/30">
+                        {rowTotal ? fmtNum(rowTotal) : '—'}
+                      </td>
                     </tr>
 
                     {/* Filhos inline */}
@@ -786,8 +862,8 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
 
               {/* Linha de total */}
               <tr className="bg-surface-light border-t-2 border-surface-border font-semibold sticky bottom-0">
-                <td />
-                <td className="px-3 py-1.5 text-text-secondary border-r border-surface-border">Total</td>
+                <td className="sticky z-[5] bg-surface-light" style={{ left: 0 }} />
+                <td className="sticky z-[5] bg-surface-light px-3 py-1.5 text-text-secondary border-r border-surface-border" style={{ left: COL_EXPAND }}>Total</td>
                 {periodos.map(p => {
                   const t = totaisPeriodo[p]
                   return (
@@ -1103,10 +1179,11 @@ export function EstoquePage() {
     filtros.grupos.length + filtros.chapas.length + filtros.lotes.length + filtros.unidades.length +
     (filtros.data_ini ? 1 : 0) + (filtros.data_fim ? 1 : 0)
 
+  const [matrizSort, setMatrizSort] = useState<MatrizSort>({ col: null, dir: null })
   const { data: kpiData,    isLoading: kpiLoading   } = useEstoqueKpi()
   const { data: chapaData,  isLoading: chapaLoading  } = useEstoqueChapa()
   const { data: blocoData,  isLoading: blocoLoading  } = useEstoqueBloco()
-  const { data: matrizData, isLoading: matrizLoading } = useEstoqueFaturamentoMatriz()
+  const { data: matrizData, isLoading: matrizLoading } = useEstoqueFaturamentoMatriz(matrizSort)
 
   return (
     <div className="flex flex-col gap-4 max-w-[1800px] mx-auto pb-8">
@@ -1192,6 +1269,7 @@ export function EstoquePage() {
           loading={matrizLoading}
           filtros={filtros}
           onFilter={setFiltros}
+          onSortChange={setMatrizSort}
         />
       </ErrorBoundary>
 

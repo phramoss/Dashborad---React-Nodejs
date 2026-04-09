@@ -6,11 +6,9 @@ import { useGlobalLoading } from '@/hooks/useGlobalLoading'
 import { cn } from '@/lib/utils'
 
 const PAGE_TITLES: Record<string, { title: string; desc: string }> = {
-  '/visao-geral': { title: 'Visão Geral', desc: 'Análise Comercial' },
-  '/tendencias':  { title: 'Tendências',  desc: 'Evolução e projeções' },
-  '/estoque':     { title: 'Estoque',     desc: 'Disponíveis e Reservados'},
-  '/clientes':    { title: 'Clientes',    desc: 'Base e performance' },
-  '/produtos':    { title: 'Produtos',    desc: 'Catálogo e materiais' },
+  '/visao-geral':   { title: 'Visão Geral',      desc: 'Análise Comercial'        },
+  '/estoque':       { title: 'Estoque',          desc: 'Disponíveis e Reservados' },
+  '/buraco-vendas': { title: 'Buraco de Vendas', desc: 'Análise de desempenho'    },
 }
 
 // function UltimaAtualizacao() {
@@ -64,7 +62,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         </button>
 
         <div className="flex flex-col justify-center leading-none">
-          <span className="text-base sm:text-2xl font-semibold font-display tracking-wide text-text-primary uppercase">
+          <span className="text-base sm:text-2x1 font-semibold font-display tracking-wide text-text-primary uppercase">
             {page?.title ?? 'Dashboard'}  - {page?.desc}
           </span>
         </div>

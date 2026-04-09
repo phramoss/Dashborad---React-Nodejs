@@ -201,7 +201,8 @@ router.get('/estoque/chapa', async (req, res, next) => {
       case 1:
         selectCols = `BLOCO`
         groupBy    = `BLOCO`
-        labelKey   = 'BLOCO'; valueKey = 'BLOCO'
+        labelKey   = 'BLOCO'; 
+        valueKey = 'BLOCO'
         orderBy    = 'BLOCO'
         break
       case 2:
@@ -372,7 +373,9 @@ router.get('/estoque/bloco', async (req, res, next) => {
 // Níveis: 0=Material  1=Unidade  2=Cliente  3=Pedido
 router.get('/estoque/faturamento-matriz', async (req, res, next) => {
   try {
-    const nivel = Number(req.query.nivel || 0)
+    const nivel   = Number(req.query.nivel || 0)
+    const sortCol = req.query.sort_col ?? null
+    const sortDir = req.query.sort_dir === 'desc' ? 'desc' : 'asc'
     const { where, params } = buildFatFilters(req.query)
 
     const drill = []
@@ -384,34 +387,38 @@ router.get('/estoque/faturamento-matriz', async (req, res, next) => {
     const fatWhere = [...where.map(c => c.replace(/^(COD_EMPRESA|COD_MA|DATA_EMISAO)/, 'FAT.$1')), ...drill]
     const w = fatWhere.length ? `WHERE ${fatWhere.join(' AND ')}` : ''
 
-    let selectCols, groupBy, labelKey, valueKey
+    let selectCols, groupBy, labelKey, valueKey, dimKey
 
     switch (nivel) {
       case 0:
         selectCols = `FAT.COD_MA, IIF(MA.MATERIAL IS NOT NULL, MA.MATERIAL, FAT.MATERIAL) AS dim_label`
         groupBy    = `FAT.COD_MA, IIF(MA.MATERIAL IS NOT NULL, MA.MATERIAL, FAT.MATERIAL)`
-        labelKey   = 'DIM_LABEL'; valueKey = 'COD_MA'
+        labelKey   = 'DIM_LABEL'; valueKey = 'COD_MA'; dimKey = 'COD_MA'
         break
       case 1:
         selectCols = `FAT.UNIDADE AS dim_label`
         groupBy    = `FAT.UNIDADE`
-        labelKey   = 'DIM_LABEL'; valueKey = 'DIM_LABEL'
+        labelKey   = 'DIM_LABEL'; valueKey = 'DIM_LABEL'; dimKey = 'DIM_LABEL'
         break
       case 2:
         selectCols = `FAT.COD_CLIENTE, TRIM(FAT.NOM_PESS) AS dim_label`
         groupBy    = `FAT.COD_CLIENTE, TRIM(FAT.NOM_PESS)`
-        labelKey   = 'DIM_LABEL'; valueKey = 'COD_CLIENTE'
+        labelKey   = 'DIM_LABEL'; valueKey = 'COD_CLIENTE'; dimKey = 'COD_CLIENTE'
         break
       case 3:
         selectCols = `FAT.COD_DOC AS dim_label`
         groupBy    = `FAT.COD_DOC`
-        labelKey   = 'DIM_LABEL'; valueKey = 'DIM_LABEL'
+        labelKey   = 'DIM_LABEL'; valueKey = 'DIM_LABEL'; dimKey = 'DIM_LABEL'
         break
       default:
         selectCols = `FAT.COD_MA, IIF(MA.MATERIAL IS NOT NULL, MA.MATERIAL, FAT.MATERIAL) AS dim_label`
         groupBy    = `FAT.COD_MA, IIF(MA.MATERIAL IS NOT NULL, MA.MATERIAL, FAT.MATERIAL)`
-        labelKey   = 'DIM_LABEL'; valueKey = 'COD_MA'
+        labelKey   = 'DIM_LABEL'; valueKey = 'COD_MA'; dimKey = 'COD_MA'
     }
+
+    const sqlOrderBy = (!sortCol || sortCol === 'nome')
+      ? `dim_label ${sortDir.toUpperCase()}, ano, mes`
+      : `dim_label ASC, ano, mes`
 
     const sql = `
       SELECT
@@ -426,10 +433,33 @@ router.get('/estoque/faturamento-matriz', async (req, res, next) => {
       GROUP BY ${groupBy},
                EXTRACT(YEAR  FROM FAT.DATA_EMISAO),
                EXTRACT(MONTH FROM FAT.DATA_EMISAO)
-      ORDER BY dim_label, ano, mes
+      ORDER BY ${sqlOrderBy}
       ROWS 1 TO 500
     `
-    const rows = await query(sql, params)
+    let rows = await query(sql, params)
+
+    if (sortCol && sortCol !== 'nome') {
+      // sortRowsByCol precisa do mesmo helper — importado ou replicado
+      const [anoStr, mesStr] = (sortCol !== 'total') ? sortCol.split('-') : ['', '']
+      const anoSort = Number(anoStr); const mesSort = Number(mesStr)
+      const dir = sortDir === 'desc' ? -1 : 1
+      const valueMap = new Map()
+      rows.forEach(r => {
+        const k = String(r[dimKey] ?? r[dimKey.toLowerCase()] ?? '')
+        const ano = Number(r.ANO ?? r.ano ?? 0)
+        const mes = Number(r.MES ?? r.mes ?? 0)
+        const inclui = sortCol === 'total' || (ano === anoSort && mes === mesSort)
+        if (inclui) valueMap.set(k, (valueMap.get(k) ?? 0) + Number(r.TOTAL ?? r.total ?? 0))
+      })
+      const dimOrder = [...new Set(rows.map(r => String(r[dimKey] ?? r[dimKey.toLowerCase()] ?? '')))]
+      dimOrder.sort((a, b) => dir * ((valueMap.get(a) ?? 0) - (valueMap.get(b) ?? 0)))
+      const posMap = new Map(dimOrder.map((d, i) => [d, i]))
+      rows = rows.slice().sort((a, b) => {
+        const pa = posMap.get(String(a[dimKey] ?? a[dimKey.toLowerCase()] ?? '')) ?? 0
+        const pb = posMap.get(String(b[dimKey] ?? b[dimKey.toLowerCase()] ?? '')) ?? 0
+        return pa - pb
+      })
+    }
 
     const lk = labelKey.toLowerCase()
     const vk = valueKey.toLowerCase()

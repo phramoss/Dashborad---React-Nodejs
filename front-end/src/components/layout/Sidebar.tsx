@@ -1,14 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart2, TrendingUp, Users, Package, Layers, Settings, LogOut, X } from 'lucide-react'
+import { BarChart2, Layers, Settings, LogOut, X, TrendingUp } from 'lucide-react'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
+import logoRedsis from '@/assets/logo-redsis.png'
 
 const NAV_ITEMS = [
-  { to: '/visao-geral', icon: BarChart2,  label: 'Visão Geral'  },
-  { to: '/estoque',     icon: Layers,     label: 'Estoque'       },
-  { to: '/tendencias',  icon: TrendingUp, label: 'Tendências'   },
-  { to: '/clientes',    icon: Users,      label: 'Clientes'      },
-  { to: '/produtos',    icon: Package,    label: 'Produtos'      },
+  { to: '/visao-geral',   icon: BarChart2,    label: 'Visão Geral'      },
+  { to: '/estoque',       icon: Layers,       label: 'Estoque'          },
+  { to: '/buraco-vendas', icon: TrendingUp, label: 'Buraco de Vendas' },
 ] as const
 
 interface SidebarProps {
@@ -40,8 +39,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Logo + botão fechar no mobile */}
         <div className="relative w-8 h-8 mb-4 shrink-0">
           <Tooltip content="Dashboard Comercial" side="right">
-            <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-glow cursor-default">
-              <span className="text-surface-dark font-display font-bold text-sm select-none">R</span>
+            <div className="w-8 h-8 rounded-lg overflow-hidden cursor-default flex items-center justify-center">
+              <img src={logoRedsis} alt="Redsis" className="w-full h-full object-contain" />
             </div>
           </Tooltip>
           <button

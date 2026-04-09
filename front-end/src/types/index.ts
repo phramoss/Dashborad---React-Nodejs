@@ -137,18 +137,25 @@ export interface EstoqueTableResult {
 
 // Linha da matriz faturamento (pivot pelo frontend)
 export interface EstoqueMatrizRow {
-  label:      string
-  value:      string | number
-  ano:        number
-  mes:        number
-  quantidade: number
-  total:      number
+  label:           string
+  value:           string | number
+  ano:             number
+  mes:             number
+  quantidade:      number
+  total:           number
+  campoAdicional?: string  // opcional — só presente em /buraco-vendas/sequencia nivel=0
 }
 
 export interface EstoqueMatrizResult {
   nivel:    number
   maxNivel: number
   rows:     EstoqueMatrizRow[]
+}
+
+/** Ordenação de matriz pivot — compartilhada por todas as matrizes de faturamento */
+export interface MatrizSort {
+  col: string | null          // 'nome' | 'total' | 'YYYY-MM' | null
+  dir: 'asc' | 'desc' | null
 }
 
 export interface EstoqueFiltrosDisponiveis {
@@ -186,6 +193,34 @@ export interface EstoqueFiltros {
   // período — apenas para estoque por faturamento
   data_ini:         string
   data_fim:         string
+}
+
+// ============================================================
+// Buraco de Vendas — tipos de domínio
+// ============================================================
+
+export interface BuracoVendasFiltros {
+  data_ini:   string
+  data_fim:   string
+  clientes:   number[]
+  vendedores: number[]
+  materiais:  number[]
+  ufs:        string[]
+  municipios: string[]
+  mercado:    string[]
+}
+
+/** Linha retornada por /buraco-vendas/materiais-comprados */
+export interface BVMaterialComprado {
+  materialId:    number
+  material:      string
+  codGrp:        number | null
+  ultimaVenda:   string | null   // ISO date ou null
+  qtdeM2:        number
+  qtdeM3:        number
+  qtdePc:        number
+  numPedidos:    number
+  totalFaturado: number
 }
 
 // ============================================================

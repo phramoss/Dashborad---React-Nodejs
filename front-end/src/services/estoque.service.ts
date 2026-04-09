@@ -6,6 +6,7 @@ import type {
   EstoqueFiltrosDisponiveis,
   EstoqueFiltros,
   EstoqueDrillState,
+  MatrizSort,
 } from '@/types'
 
 // ─── Params base (sem período) — para chapa/bloco/kpi ────────
@@ -74,14 +75,13 @@ export async function fetchEstoqueBloco(
 }
 
 export async function fetchEstoqueFaturamentoMatriz(
-  f:     EstoqueFiltros,
-  drill: EstoqueDrillState,
+  f:      EstoqueFiltros,
+  drill:  EstoqueDrillState,
+  sort?:  MatrizSort,
 ): Promise<EstoqueMatrizResult> {
-  return request<EstoqueMatrizResult>({
-    method: 'GET',
-    url:    '/estoque/faturamento-matriz',
-    params: { ...toFatParams(f), ...toDrillParams(drill) },
-  })
+  const params: Record<string, string> = { ...toFatParams(f), ...toDrillParams(drill) }
+  if (sort?.col && sort?.dir) { params.sort_col = sort.col; params.sort_dir = sort.dir }
+  return request<EstoqueMatrizResult>({ method: 'GET', url: '/estoque/faturamento-matriz', params })
 }
 
 export async function fetchEstoqueFiltrosDisponiveis(): Promise<EstoqueFiltrosDisponiveis> {

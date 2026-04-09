@@ -54,7 +54,7 @@ export const MultiSelect = memo(function MultiSelect({
   function openDropdown() {
     if (!triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
-    setDropPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 256) })
+    setDropPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 320) })
     setOpen(true)
   }
 
@@ -79,7 +79,7 @@ export const MultiSelect = memo(function MultiSelect({
     const onScroll = () => {
       if (!triggerRef.current) return
       const rect = triggerRef.current.getBoundingClientRect()
-      setDropPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 256) })
+      setDropPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 320) })
     }
     window.addEventListener('scroll', onScroll, true)
     return () => window.removeEventListener('scroll', onScroll, true)
@@ -122,7 +122,7 @@ export const MultiSelect = memo(function MultiSelect({
     if (selected.length <= maxDisplay) {
       return selected
         .map(id => options.find(o => o.id === id)?.label ?? String(id))
-        .map(l => truncate(l, 12))
+        .map(l => truncate(l, 20))
         .join(', ')
     }
     return `${selected.length} selecionados`
@@ -139,7 +139,7 @@ export const MultiSelect = memo(function MultiSelect({
         onClick={() => open ? (setOpen(false), setSearch('')) : openDropdown()}
         className={cn(
           'flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs',
-          'border transition-all duration-150 min-w-[120px] max-w-[200px] w-full',
+          'border transition-all duration-150 min-w-[140px] max-w-[280px] w-full',
           open || hasSelection
             ? 'border-brand/50 bg-brand/5 text-text-primary'
             : 'border-surface-border bg-surface-light text-text-secondary hover:border-surface-border/80 hover:text-text-primary',
@@ -187,7 +187,7 @@ export const MultiSelect = memo(function MultiSelect({
           </div>
 
           {/* Opções */}
-          <div className="max-h-52 overflow-y-auto py-1">
+          <div className="max-h-64 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <p className="px-3 py-3 text-[13.5px] text-text-muted text-center">
                 Nenhum resultado
