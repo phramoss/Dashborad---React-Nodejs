@@ -1,13 +1,14 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart2, Layers, Settings, LogOut, X, TrendingUp } from 'lucide-react'
+import { BarChart2, Layers, Settings, LogOut, X, TrendingUp, Calculator } from 'lucide-react'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
 import logoRedsis from '@/assets/logo-redsis.png'
 
 const NAV_ITEMS = [
-  { to: '/visao-geral',   icon: BarChart2,    label: 'Visão Geral'      },
-  { to: '/estoque',       icon: Layers,       label: 'Estoque'          },
-  { to: '/buraco-vendas', icon: TrendingUp, label: 'Buraco de Vendas' },
+  { to: '/visao-geral',   icon: BarChart2,   label: 'Visão Geral'              },
+  { to: '/estoque',       icon: Layers,      label: 'Estoque'                  },
+  { to: '/buraco-vendas', icon: TrendingUp,  label: 'Buraco de Vendas'         },
+  { to: '/simulador',     icon: Calculator,  label: 'Simulador - Análise de Dados'  },
 ] as const
 
 interface SidebarProps {
@@ -18,7 +19,6 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   return (
     <>
-      {/* Overlay — só no mobile quando aberto */}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/50 md:hidden"
@@ -26,7 +26,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-40 w-14 flex flex-col items-center py-4 gap-2',
@@ -36,7 +35,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        {/* Logo + botão fechar no mobile */}
         <div className="relative w-8 h-8 mb-4 shrink-0">
           <Tooltip content="Dashboard Comercial" side="right">
             <div className="w-8 h-8 rounded-lg overflow-hidden cursor-default flex items-center justify-center">
@@ -51,7 +49,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex flex-col gap-1 flex-1">
           {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
             <Tooltip key={to} content={label} side="right">
@@ -81,7 +78,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Bottom */}
         <div className="flex flex-col gap-1">
           <Tooltip content="Configurações" side="right">
             <button className="w-10 h-10 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all">

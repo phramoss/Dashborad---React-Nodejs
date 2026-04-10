@@ -1,7 +1,3 @@
-// ============================================================
-// Tipos de domínio — espelham exatamente o que a API retorna
-// ============================================================
-
 export interface KpiSummary {
   faturamento: number
   faturamentoAnterior: number
@@ -17,9 +13,9 @@ export interface KpiSummary {
 }
 
 export interface FaturamentoPeriodo {
-  periodo: string        
+  periodo: string
   faturamento: number
-  mesNumero?: number     // presente no retorno de /analytics/por-mes (1-12)
+  mesNumero?: number
 }
 
 export interface FaturamentoCliente {
@@ -56,44 +52,34 @@ export interface MapaMunicipio {
   numClientes: number
 }
 
-// ============================================================
-// Filtros — o que o Zustand guarda
-// ============================================================
 export type GranularidadePeriodo = 'ano' | 'mes'
 
 export interface FiltroDashboard {
-  // Anos selecionados (convertidos para data_ini/data_fim ao chamar a API)
   anos: number[]
-  meses: number[]         // meses selecionados (1-12) — dimming visual + cross-filter
+  meses: number[]
   clientes: number[]
   vendedores: number[]
   materiais: number[]
   grupos: number[]
-  ufs: string[]           // UFs selecionadas via clique no mapa (ex: ['ES', 'SP'])
-  municipios: string[]    // Municípios selecionados via clique no mapa (ex: ['CASTELO', 'SERRA'])
+  ufs: string[]
+  municipios: string[]
   granularidade: GranularidadePeriodo
 }
 
-// ============================================================
-// Params reais que a API aceita (montados pelo adapter)
-// ============================================================
 export interface ApiQueryParams {
-  cod_cliente?:  string   // "1,2,3"
+  cod_cliente?:  string
   cod_vendedor?: string
   cod_ma?:       string
   cod_grp?:      string
-  uf?:           string   // "ES,SP,MG"
-  municipio?:    string   // "CASTELO,SERRA,SAO PAULO"
-  meses?:        string   // "1,3,12" — filtro de meses (1-12)
-  data_ini?:     string   // "YYYY-MM-DD"
+  uf?:           string
+  municipio?:    string
+  meses?:        string
+  data_ini?:     string
   data_fim?:     string
   data_tipo?:    'emissao' | 'saida'
   limit?:        string
 }
 
-// ============================================================
-// Opções para os dropdowns de filtro
-// ============================================================
 export interface FiltroOption {
   id: number | string
   label: string
@@ -107,10 +93,6 @@ export interface FiltrosDisponiveis {
   grupos: FiltroOption[]
 }
 
-// ============================================================
-// Estoque — tipos de domínio
-// ============================================================
-
 export interface EstoqueKpi {
   custoTotal: number
   totalM2:    number
@@ -120,10 +102,9 @@ export interface EstoqueKpi {
   cavaletes:  number
 }
 
-// Linha genérica retornada pelos endpoints de tabela (drill-down)
 export interface EstoqueTableRow {
-  label:    string           // texto exibido
-  value:    string | number  // valor usado para drill e filtro
+  label:    string
+  value:    string | number
   metragem: number
   pc:       number
 }
@@ -135,7 +116,6 @@ export interface EstoqueTableResult {
   totais:   { metragem: number; pc: number }
 }
 
-// Linha da matriz faturamento (pivot pelo frontend)
 export interface EstoqueMatrizRow {
   label:           string
   value:           string | number
@@ -143,7 +123,7 @@ export interface EstoqueMatrizRow {
   mes:             number
   quantidade:      number
   total:           number
-  campoAdicional?: string  // opcional — só presente em /buraco-vendas/sequencia nivel=0
+  campoAdicional?: string
 }
 
 export interface EstoqueMatrizResult {
@@ -152,9 +132,8 @@ export interface EstoqueMatrizResult {
   rows:     EstoqueMatrizRow[]
 }
 
-/** Ordenação de matriz pivot — compartilhada por todas as matrizes de faturamento */
 export interface MatrizSort {
-  col: string | null          // 'nome' | 'total' | 'YYYY-MM' | null
+  col: string | null
   dir: 'asc' | 'desc' | null
 }
 
@@ -166,12 +145,11 @@ export interface EstoqueFiltrosDisponiveis {
   composicoes: string[]
 }
 
-// Nó do breadcrumb de drill-down
 export interface EstoqueDrillNode {
   nivel:  number
-  label:  string           // texto exibido no breadcrumb
-  field:  string           // nome do query param (e.g. 'drill_cod_ma')
-  value:  string | number  // valor a ser passado como param
+  label:  string
+  field:  string
+  value:  string | number
 }
 
 export interface EstoqueDrillState {
@@ -186,18 +164,13 @@ export interface EstoqueFiltros {
   espessuras:       number[]
   industrializacao: string[]
   situacao:         string[]
-  grupos:           number[]   // COD_GRP — click filter nível 2 (Grupo)
-  chapas:           number[]   // COD_ESTQ — click filter nível 5 (Chapa)
-  lotes:            string[]   // LOTE — click filter nível 6 (Lote)
-  unidades:         string[]   // UNIDADE — click filter nível folha (Chapa/Bloco/FAT)
-  // período — apenas para estoque por faturamento
+  grupos:           number[]
+  chapas:           number[]
+  lotes:            string[]
+  unidades:         string[]
   data_ini:         string
   data_fim:         string
 }
-
-// ============================================================
-// Buraco de Vendas — tipos de domínio
-// ============================================================
 
 export interface BuracoVendasFiltros {
   data_ini:   string
@@ -210,12 +183,11 @@ export interface BuracoVendasFiltros {
   mercado:    string[]
 }
 
-/** Linha retornada por /buraco-vendas/materiais-comprados */
 export interface BVMaterialComprado {
   materialId:    number
   material:      string
   codGrp:        number | null
-  ultimaVenda:   string | null   // ISO date ou null
+  ultimaVenda:   string | null
   qtdeM2:        number
   qtdeM3:        number
   qtdePc:        number
@@ -223,9 +195,6 @@ export interface BVMaterialComprado {
   totalFaturado: number
 }
 
-// ============================================================
-// Auth / Erros
-// ============================================================
 export interface Usuario {
   id: number
   nome: string
@@ -235,4 +204,66 @@ export interface Usuario {
 export interface ApiError {
   message: string
   code?: string
+}
+
+export interface SimuladorFiltros {
+  materiais: number[]
+  blocos:    number[]
+}
+
+export interface SimuladorFiltrosDisponiveis {
+  materiais: { id: number; label: string }[]
+  blocos:    number[]
+}
+
+export interface SimuladorMatrizRow {
+  codMa:       number
+  material:    string
+  nBloco:      number
+  vendidas:    number
+  pc:          number
+  pcRestante:  number
+  compra:      number
+  frete:       number
+  serrada:     number
+  polimento:   number
+  outCustos:   number
+  outDesp:     number
+  servicos:    number
+  custoTotal:  number
+  metrosTotal: number
+  custoM2:     number
+}
+
+export interface SimuladorMatrizResult {
+  rows: SimuladorMatrizRow[]
+}
+
+export interface SimuladorVendaRow {
+  material: string
+  nPedido:  string
+  bloco:    number
+  pc:       number
+  qtde:     number
+  un:       string
+  preco:    number
+  total:    number
+  vendedor: string
+  cliente:  string
+}
+
+export interface SimuladorVendasResult {
+  rows: SimuladorVendaRow[]
+}
+
+export interface SimuladorResumo {
+  sumCustoTotal:  number
+  sumMetrosTotal: number
+  sumPcBloco:     number
+  maxDfixa:       number
+  maxDvariavel:   number
+  maxLucro:       number
+  sumVendasTotal: number
+  sumVendasPc:    number
+  sumVendasQtde:  number
 }
