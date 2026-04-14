@@ -30,7 +30,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-40 w-14 flex flex-col items-center py-4 gap-2',
-          'bg-surface border-r border-surface-border shrink-0',
+          'bg-[#191B1D] border-r border-[rgba(66,141,148,0.20)] shrink-0',
           'transition-transform duration-200',
           'md:relative md:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
@@ -61,8 +61,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     'relative w-10 h-10 rounded-xl flex items-center justify-center',
                     'transition-all duration-150',
                     isActive
-                      ? 'bg-brand/15 text-brand shadow-glow'
-                      : 'text-text-muted hover:text-text-primary hover:bg-surface-light',
+                      ? 'bg-[#428D94]/15 text-[#428D94]'
+                      : 'text-text-muted hover:text-text-primary hover:bg-[#2D2F33]',
                   )
                 }
               >
@@ -70,7 +70,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   <>
                     <Icon size={17} strokeWidth={isActive ? 2 : 1.5} />
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-brand rounded-r-full" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#428D94] rounded-r-full" />
                     )}
                   </>
                 )}
@@ -81,7 +81,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         <div className="flex flex-col gap-1">
           <Tooltip content="Configurações" side="right">
-            <button className="w-10 h-10 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all">
+            <button className="w-10 h-10 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-[#2D2F33] transition-all">
               <Settings size={17} strokeWidth={1.5} />
             </button>
           </Tooltip>

@@ -4,10 +4,13 @@
 
 @layer base {
   :root {
-    --color-brand:   #00d4aa;
-    --color-bg:      #161929;
-    --color-surface: #1e2235;
-    --color-border:  #2d3554;
+    --color-bg:       #030303;
+    --color-surface:  #2D2F33;
+    --color-filter:   #191B1D;
+    --color-brand:    #428D94;
+    --color-brand-80: rgba(66,141,148,0.80);
+    --color-border:   rgba(66,141,148,0.20);
+    --color-text:     #c9c9c9;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -19,7 +22,8 @@
   }
 
   body {
-    @apply bg-surface-dark text-text-primary font-sans antialiased;
+    @apply text-text-primary font-sans antialiased;
+    background-color: #030303;
     font-size: 18px;
     font-feature-settings: "tnum" on, "lnum" on;
   }

@@ -115,7 +115,7 @@ const MobileDrawer = memo(function MobileDrawer({
         className={cn(
           'sm:hidden fixed top-0 right-0 h-full z-50',
           'w-[85vw] max-w-[340px]',
-          'bg-surface border-l border-surface-border shadow-2xl',
+          'bg-[#191B1D] border-l border-[rgba(66,141,148,0.20)] shadow-2xl',
           // O drawer inteiro scrolla — sem flex-col
           'overflow-y-auto overscroll-contain',
           'transition-transform duration-300 ease-out',
@@ -123,19 +123,19 @@ const MobileDrawer = memo(function MobileDrawer({
         )}
       >
         {/* Header — sticky no topo durante scroll */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3.5 bg-surface border-b border-surface-border">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3.5 bg-[#191B1D] border-b border-[rgba(66,141,148,0.20)]">
           <div className="flex items-center gap-2 text-text-secondary">
             <SlidersHorizontal size={14} />
             <span className="text-[12px] uppercase tracking-widest font-semibold">Filtros</span>
             {activeCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-brand/20 text-brand text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded-full bg-[#428D94]/20 text-[#428D94] text-[10px] font-bold">
                 {activeCount}
               </span>
             )}
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-[#2D2F33] transition-all"
             aria-label="Fechar filtros"
           >
             <ChevronRight size={18} />
@@ -155,7 +155,7 @@ const MobileDrawer = memo(function MobileDrawer({
           <FiltroMesesSelect />
 
           {/* Separador */}
-          <div className="w-full h-px bg-surface-border my-1" />
+          <div className="w-full h-px bg-[rgba(66,141,148,0.20)] my-1" />
 
           <p className="text-[10px] text-text-muted uppercase tracking-widest">Dimensões</p>
 
@@ -172,7 +172,7 @@ const MobileDrawer = memo(function MobileDrawer({
         </div>
 
         {/* Footer — sticky no rodapé durante scroll */}
-        <div className="sticky bottom-0 z-10 px-4 py-4 bg-surface border-t border-surface-border flex flex-col gap-2">
+        <div className="sticky bottom-0 z-10 px-4 py-4 bg-[#191B1D] border-t border-[rgba(66,141,148,0.20)] flex flex-col gap-2">
           {activeCount > 0 && (
             <button
               onClick={() => { onReset(); onClose() }}
@@ -192,8 +192,8 @@ const MobileDrawer = memo(function MobileDrawer({
             className={cn(
               'w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg',
               'text-[12px] font-medium text-text-secondary',
-              'bg-surface-light border border-surface-border',
-              'hover:bg-surface-border active:scale-[0.98] transition-all',
+              'bg-[#2D2F33] border border-[rgba(66,141,148,0.20)]',
+              'hover:bg-[#3A3D42] active:scale-[0.98] transition-all',
             )}
           >
             Aplicar e fechar
@@ -231,12 +231,12 @@ export const FiltroBar = memo(function FiltroBar() {
           <span className="text-[11.5px] uppercase tracking-widest font-medium">Filtros</span>
         </div>
 
-        <div className="w-px h-5 bg-surface-border" />
+        <div className="w-px h-5 bg-[rgba(66,141,148,0.20)]" />
 
         <FiltroAnosSelect />
         <FiltroMesesSelect />
 
-        <div className="w-px h-5 bg-surface-border" />
+        <div className="w-px h-5 bg-[rgba(66,141,148,0.20)]" />
 
         <FilterDropdowns {...sharedProps} />
 
@@ -277,7 +277,7 @@ export const FiltroBar = memo(function FiltroBar() {
           'transition-all duration-200 active:scale-95',
           activeCount > 0
             ? 'bg-brand shadow-brand/30 text-surface-dark'
-            : 'bg-surface border border-surface-border/80 text-text-muted hover:border-brand/40 hover:text-brand',
+            : 'bg-[#191B1D] border border-[rgba(66,141,148,0.20)] text-text-muted hover:border-[#428D94]/40 hover:text-[#428D94]',
         )}
         aria-label="Abrir filtros"
       >

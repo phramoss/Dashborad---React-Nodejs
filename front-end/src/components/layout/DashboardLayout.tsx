@@ -13,7 +13,7 @@ export function DashboardLayout() {
     <>
       <GlobalLoadingBar />
 
-      <div className="flex h-screen w-screen overflow-hidden bg-surface-dark">
+      <div className="flex h-screen w-screen overflow-hidden bg-[#030303]">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">

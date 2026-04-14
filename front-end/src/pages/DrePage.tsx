@@ -304,7 +304,7 @@ const DreMatriz = memo(function DreMatriz({ linhas, periodos, loading }: DreMatr
     )
   }
 
-  if (!linhas.length) {
+  if (periodos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-2">
         <BarChart2 size={28} className="text-text-muted/30" />
@@ -587,7 +587,7 @@ export function DrePage() {
   const { filtros, setModo, setDataIni, setDataFim, resetFiltros } = useDreStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const { data, isLoading } = useDreData()
+  const { data, isLoading, isError } = useDreData()
 
   const linhas  = useMemo(() => data?.linhas  ?? [], [data?.linhas])
   const periodos = useMemo(() => data?.periodos ?? [], [data?.periodos])
@@ -694,13 +694,21 @@ export function DrePage() {
               {modoLabel}
             </span>
           </div>
-          <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-            <DreMatriz
-              linhas={linhas}
-              periodos={periodos}
-              loading={isLoading}
-            />
-          </div>
+          {isError ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <BarChart2 size={28} className="text-status-danger/30" />
+              <p className="text-sm text-status-danger">Erro ao carregar dados</p>
+              <p className="text-xs text-text-muted/60">Verifique a conexão com o servidor</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+              <DreMatriz
+                linhas={linhas}
+                periodos={periodos}
+                loading={isLoading}
+              />
+            </div>
+          )}
         </Card>
       </ErrorBoundary>
 

@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, useCallback, useEffect, Fragment } from 'react'
 import {
   SlidersHorizontal, RefreshCw, Filter, ChevronRight, ChevronDown, ChevronUp,
-  TrendingDown, Grid3X3, Box, LayoutTemplate,
+  TrendingDown, Grid3X3, Box, LayoutTemplate,Handshake,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -304,10 +304,11 @@ interface HierarchyTableProps {
   loading?: boolean
   filtros:  EstoqueFiltros
   onFilter: (p: Partial<EstoqueFiltros>) => void
+  icon:     React.ElementType
 }
 
 const HierarchyTable = memo(function HierarchyTable({
-  title, headers, fields, endpoint, data, loading, filtros, onFilter,
+  title, headers, fields, endpoint, data, loading, filtros, onFilter, icon: Icon, 
 }: HierarchyTableProps) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
   const [sortCol, setSortCol] = useState<string | null>(null)
@@ -364,6 +365,7 @@ const HierarchyTable = memo(function HierarchyTable({
         <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
           {title}
         </p>
+        
       </div>
 
       {/* Cabeçalho fixo */}
@@ -1250,6 +1252,7 @@ export function EstoquePage() {
         </ErrorBoundary>
         <ErrorBoundary>
           <HierarchyTable
+            icon = {Handshake}
             title="Bloco"
             headers={BLOCO_HEADERS}
             fields={BLOCO_FIELDS}

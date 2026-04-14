@@ -15,6 +15,9 @@ function getCache(key) {
 function setCache(key, data) { _cache.set(key, { data, ts: Date.now() }) }
 function n(v) { const x = Number(v ?? 0); return isFinite(x) ? x : 0 }
 function s(v) { return String(v ?? '') }
+function toFirebirdDate(dateStr, endOfDay = false) {
+  return endOfDay ? dateStr + ' 23:59:59' : dateStr
+}
 
 // ─── Layout DRE ──────────────────────────────────────────────────────────────
 const DRE_LAYOUT = [
@@ -188,13 +191,11 @@ router.get('/dre', async (req, res, next) => {
 
     if (data_ini) {
       where.push(`${campoData} >= ?`)
-      params.push(new Date(data_ini))
+      params.push(toFirebirdDate(data_ini))
     }
     if (data_fim) {
-      const fim = new Date(data_fim)
-      fim.setHours(23, 59, 59, 999)
       where.push(`${campoData} <= ?`)
-      params.push(fim)
+      params.push(toFirebirdDate(data_fim, true))
     }
 
     addInFilter(where, params, 'VRESULTADO.COD_ESTAB', estab, Number)
@@ -211,15 +212,10 @@ router.get('/dre', async (req, res, next) => {
         SUM(VRESULTADO.TOTALCONVERTIDO)                                              AS VALOR
       FROM VRESULTADO
       INNER JOIN CONTA ON VRESULTADO.COD_CTA = CONTA.COD_CTA
-      INNER JOIN (
-        SELECT SUBGRUPO_DFC, MIN(CONTAB_CTA) AS CONTAB_CTA_SUBGRUPO
-        FROM CONTA
-        WHERE CONTRL_CTA = 'DIVS'
-          AND SIT_CTA = 'G'
-          AND SUBGRUPO_DFC <> ''
-        GROUP BY SUBGRUPO_DFC
-      ) MOV ON CONTA.SUBGRUPO_DFC = MOV.SUBGRUPO_DFC
       ${whereClause}
+        AND CONTA.GRUPO_DFC IS NOT NULL
+        AND TRIM(CONTA.GRUPO_DFC) <> ''
+        AND ${campoData} IS NOT NULL
       GROUP BY
         CAST(SUBSTRING(CONTA.GRUPO_DFC FROM 1 FOR 2) AS INTEGER),
         CONTA.CONTAB_CTA,
@@ -251,13 +247,10 @@ router.get('/dre/filtros', async (req, res, next) => {
       SELECT DISTINCT EXTRACT(YEAR FROM DTPAGTO_FAT) AS ANO
       FROM VRESULTADO
       INNER JOIN CONTA ON VRESULTADO.COD_CTA = CONTA.COD_CTA
-      INNER JOIN (
-        SELECT SUBGRUPO_DFC, MIN(CONTAB_CTA) AS CONTAB_CTA_SUBGRUPO
-        FROM CONTA
-        WHERE CONTRL_CTA = 'DIVS' AND SIT_CTA = 'G' AND SUBGRUPO_DFC <> ''
-        GROUP BY SUBGRUPO_DFC
-      ) MOV ON CONTA.SUBGRUPO_DFC = MOV.SUBGRUPO_DFC
-      WHERE PRINT_FAT = 'S' AND DTPAGTO_FAT IS NOT NULL
+      WHERE VRESULTADO.PRINT_FAT = 'S'
+        AND VRESULTADO.DTPAGTO_FAT IS NOT NULL
+        AND CONTA.GRUPO_DFC IS NOT NULL
+        AND TRIM(CONTA.GRUPO_DFC) <> ''
       ORDER BY 1 DESC
     `
     const rows = await query(sql)

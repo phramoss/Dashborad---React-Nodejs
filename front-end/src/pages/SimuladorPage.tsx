@@ -220,7 +220,7 @@ const InfoCard = memo(function InfoCard({
   if (loading) return <CardSkeleton />
   return (
     <div className={cn(
-      'rounded-lg bg-surface border border-surface-border p-3 flex flex-col gap-0.5 min-w-0 h-full',
+      'rounded-lg "#428D94" border  p-3 flex flex-col gap-0.5 min-w-0 h-full',
       highlight && 'border-brand/30 bg-brand/5',
     )}>
       <div className="flex items-center justify-between gap-1.5">
@@ -262,13 +262,13 @@ const LucroSlider = memo(function LucroSlider({ value, onChange, disabled }: Luc
   }
 
   return (
-    <div className="rounded-lg bg-surface border border-surface-border p-3 flex flex-col gap-1 min-w-0 h-full">
+    <div className="rounded-lg '#428D94' border '#428D94' p-3 flex flex-col gap-1 min-w-0 h-full">
       <div className="flex items-center justify-between gap-1">
         <p className="text-[10px] font-medium text-text-muted uppercase tracking-wider">
           % DE LUCRO
         </p>
-        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-chart-purple/15">
-          <Percent size={12} className="text-chart-purple" strokeWidth={1.5} />
+        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-chart-orange/15">
+          <Percent size={12} className="text-chart-orange" strokeWidth={1.5} />
         </div>
       </div>
       <div className="flex justify-center gap-1">

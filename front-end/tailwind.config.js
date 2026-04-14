@@ -9,16 +9,14 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: '#00d4aa',
-          dark:    '#00bb91',
-          light:   '#14e8be',
-          muted:   '#00d4aa33',
+          DEFAULT: '#428D94',
+          muted:   'rgba(66,141,148,0.15)',
         },
         surface: {
-          DEFAULT: '#1e2235',
-          dark:    '#161929',
-          light:   '#282c3f',
-          border:  '#2d3554',
+          DEFAULT: '#2D2F33',
+          dark:    '#030303',
+          light:   '#3A3D42',
+          border:  'rgba(66,141,148,0.20)',
         },
         text: {
           primary:   '#c9c9c9',
