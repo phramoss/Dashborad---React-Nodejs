@@ -7,7 +7,8 @@ const app = express()
 app.use(cors({ origin: true }))
 app.use(express.json())
 
-app.get('/health', (req, res) => res.json({ ok: true }))
+app.get('/health',      (req, res) => res.json({ ok: true }))
+app.get('/api/health', (req, res) => res.json({ ok: true }))
 
 const analyticsRoutes    = require('./routes/analytics')
 const faturamentoRoutes  = require('./routes/faturamento')

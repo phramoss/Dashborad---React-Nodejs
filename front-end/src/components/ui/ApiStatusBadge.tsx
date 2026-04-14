@@ -6,7 +6,7 @@ export function ApiStatusBadge() {
 
   if (isPending) return null
 
-  const isOk = !isError && data?.status === 'ok'
+  const isOk = !isError && data?.ok === true
   const isMock = import.meta.env.VITE_USE_MOCK !== 'false'
 
   return (

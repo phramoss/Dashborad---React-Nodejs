@@ -4,13 +4,14 @@ import { useSimuladorFiltros } from '@/store/simulador.store'
 import {
   fetchSimuladorFiltros,
   fetchSimuladorMatriz,
+  fetchSimuladorChapas,
   fetchSimuladorVendas,
   fetchSimuladorResumo,
 } from '@/services/simulador.service'
 import type { SimuladorFiltros } from '@/types'
 
 function shallowEqual(a: SimuladorFiltros, b: SimuladorFiltros): boolean {
-  const arrKeys: (keyof SimuladorFiltros)[] = ['materiais', 'blocos']
+  const arrKeys: (keyof SimuladorFiltros)[] = ['materiais', 'blocos', 'situacao']
   for (const key of arrKeys) {
     const aArr = a[key]
     const bArr = b[key]
@@ -40,19 +41,51 @@ export function useSimuladorDebouncedFiltros(delay = 300): SimuladorFiltros {
 }
 
 const BASE = {
-  staleTime:            1000 * 30,
-  gcTime:               1000 * 60 * 5,
+  staleTime:            1000 * 60,
+  gcTime:               1000 * 60 * 10,
   refetchOnWindowFocus: false,
   placeholderData:      keepPreviousData,
   retry: (count: number, err: unknown) => {
     const status = (err as { response?: { status: number } })?.response?.status
     if (status && status >= 400 && status < 500) return false
-    return count < 2
+    return count < 1
   },
 }
 
 function qk(prefix: string, f: SimuladorFiltros) {
   return [prefix, f.materiais, f.blocos] as const
+}
+
+// Hook combinado: uma única instância de debounce para todas as queries do simulador.
+// Evita 4 timers independentes que disparam 4 atualizações de estado separadas.
+export function useSimuladorAll() {
+  const f = useSimuladorDebouncedFiltros()
+
+  const matriz = useQuery({
+    ...BASE,
+    queryKey: qk('simulador-matriz', f),
+    queryFn:  () => fetchSimuladorMatriz(f),
+  })
+
+  const chapas = useQuery({
+    ...BASE,
+    queryKey: qk('simulador-chapas', f),
+    queryFn:  () => fetchSimuladorChapas(f),
+  })
+
+  const vendas = useQuery({
+    ...BASE,
+    queryKey: qk('simulador-vendas', f),
+    queryFn:  () => fetchSimuladorVendas(f),
+  })
+
+  const resumo = useQuery({
+    ...BASE,
+    queryKey: qk('simulador-resumo', f),
+    queryFn:  () => fetchSimuladorResumo(f),
+  })
+
+  return { matriz, chapas, vendas, resumo }
 }
 
 export function useSimuladorFiltrosDisponiveis() {
@@ -65,29 +98,3 @@ export function useSimuladorFiltrosDisponiveis() {
   })
 }
 
-export function useSimuladorMatriz() {
-  const f = useSimuladorDebouncedFiltros()
-  return useQuery({
-    ...BASE,
-    queryKey: qk('simulador-matriz', f),
-    queryFn:  () => fetchSimuladorMatriz(f),
-  })
-}
-
-export function useSimuladorVendas() {
-  const f = useSimuladorDebouncedFiltros()
-  return useQuery({
-    ...BASE,
-    queryKey: qk('simulador-vendas', f),
-    queryFn:  () => fetchSimuladorVendas(f),
-  })
-}
-
-export function useSimuladorResumo() {
-  const f = useSimuladorDebouncedFiltros()
-  return useQuery({
-    ...BASE,
-    queryKey: qk('simulador-resumo', f),
-    queryFn:  () => fetchSimuladorResumo(f),
-  })
-}

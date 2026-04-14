@@ -11,6 +11,7 @@ interface SimuladorState {
 const DEFAULT_FILTROS: SimuladorFiltros = {
   materiais: [],
   blocos:    [],
+  situacao:  [],
 }
 
 export const useSimuladorStore = create<SimuladorState>()(

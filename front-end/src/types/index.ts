@@ -209,6 +209,7 @@ export interface ApiError {
 export interface SimuladorFiltros {
   materiais: number[]
   blocos:    number[]
+  situacao:  string[]
 }
 
 export interface SimuladorFiltrosDisponiveis {
@@ -237,6 +238,21 @@ export interface SimuladorMatrizRow {
 
 export interface SimuladorMatrizResult {
   rows: SimuladorMatrizRow[]
+}
+
+export interface SimuladorChapaRow {
+  codMa:       number
+  material:    string
+  nBloco:      number
+  chapa:       number
+  pc:          number
+  custoTotal:  number
+  metrosTotal: number
+  custoM2:     number
+}
+
+export interface SimuladorChapaResult {
+  rows: SimuladorChapaRow[]
 }
 
 export interface SimuladorVendaRow {

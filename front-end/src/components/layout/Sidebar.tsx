@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { to: '/visao-geral',   icon: BarChart2,   label: 'Visão Geral'              },
   { to: '/estoque',       icon: Layers,      label: 'Estoque'                  },
   { to: '/buraco-vendas', icon: TrendingUp,  label: 'Buraco de Vendas'         },
-  { to: '/simulador',     icon: Calculator,  label: 'Simulador - Análise de Dados'  },
+  { to: '/simulador',     icon: Calculator,  label: 'Simulador - Análise de Vendas'  },
 ] as const
 
 interface SidebarProps {

@@ -13,9 +13,10 @@ export function useApiHealth() {
       const res = await apiClient.get<HealthResponse>('/health')
       return res.data
     },
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: true,
-    retry: 1,
-    staleTime: 30_000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
   })
 }

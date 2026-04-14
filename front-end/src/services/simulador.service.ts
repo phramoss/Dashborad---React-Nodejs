@@ -3,14 +3,16 @@ import type {
   SimuladorFiltros,
   SimuladorFiltrosDisponiveis,
   SimuladorMatrizResult,
+  SimuladorChapaResult,
   SimuladorVendasResult,
   SimuladorResumo,
 } from '@/types'
 
 function toParams(f: SimuladorFiltros): Record<string, string> {
   const p: Record<string, string> = {}
-  if (f.materiais.length > 0) p.cod_ma = f.materiais.join(',')
-  if (f.blocos.length > 0)    p.bloco  = f.blocos.join(',')
+  if (f.materiais.length > 0) p.cod_ma   = f.materiais.join(',')
+  if (f.blocos.length > 0)    p.bloco    = f.blocos.join(',')
+  if (f.situacao.length > 0)  p.situacao = f.situacao.join(',')
   return p
 }
 
@@ -37,6 +39,16 @@ export async function fetchSimuladorVendas(
   return request<SimuladorVendasResult>({
     method: 'GET',
     url:    '/simulador/vendas',
+    params: toParams(f),
+  })
+}
+
+export async function fetchSimuladorChapas(
+  f: SimuladorFiltros,
+): Promise<SimuladorChapaResult> {
+  return request<SimuladorChapaResult>({
+    method: 'GET',
+    url:    '/simulador/chapas',
     params: toParams(f),
   })
 }
