@@ -4,6 +4,7 @@ import { OverviewPage } from '@/pages/OverviewPage'
 import { EstoquePage } from '@/pages/EstoquePage'
 import { BuracoVendasPage } from '@/pages/BuracoVendasPage'
 import { SimuladorPage } from '@/pages/SimuladorPage'
+import { DrePage } from '@/pages/DrePage'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="estoque"        element={<EstoquePage />} />
           <Route path="buraco-vendas"  element={<BuracoVendasPage />} />
           <Route path="simulador"      element={<SimuladorPage />} />
+          <Route path="dre"            element={<DrePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

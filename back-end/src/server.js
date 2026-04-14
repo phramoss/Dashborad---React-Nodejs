@@ -18,6 +18,7 @@ const usuariosRoutes     = require('./routes/usuarios')
 const estoqueRoutes      = require('./routes/estoque')
 const buracoVendasRoutes = require('./routes/buraco-vendas')
 const simuladorRoutes    = require('./routes/simulador')
+const dreRoutes          = require('./routes/dre')
 
 app.use('/api', analyticsRoutes)
 app.use('/api', faturamentoRoutes)
@@ -27,6 +28,7 @@ app.use('/api/usuarios', usuariosRoutes)
 app.use('/api', estoqueRoutes)
 app.use('/api', buracoVendasRoutes)
 app.use('/api', simuladorRoutes)
+app.use('/api', dreRoutes)
 
 app.use((err, req, res, next) => {
   console.error('ERRO:', err)

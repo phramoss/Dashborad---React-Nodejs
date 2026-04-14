@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart2, Layers, Settings, LogOut, X, TrendingUp, Calculator } from 'lucide-react'
+import { BarChart2, Layers, Settings, LogOut, X, TrendingUp, Calculator, FileText } from 'lucide-react'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { cn } from '@/lib/utils'
 import logoRedsis from '@/assets/logo-redsis.png'
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/estoque',       icon: Layers,      label: 'Estoque'                  },
   { to: '/buraco-vendas', icon: TrendingUp,  label: 'Buraco de Vendas'         },
   { to: '/simulador',     icon: Calculator,  label: 'Simulador - Análise de Vendas'  },
+  { to: '/dre',           icon: FileText,    label: 'DRE - Caixa / Competência' },
 ] as const
 
 interface SidebarProps {

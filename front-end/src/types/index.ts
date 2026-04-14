@@ -283,3 +283,62 @@ export interface SimuladorResumo {
   sumVendasPc:    number
   sumVendasQtde:  number
 }
+
+// ─── DRE ─────────────────────────────────────────────────────────────────────
+
+export type DreModo = 'caixa' | 'competencia'
+
+export interface DreFiltros {
+  modo:     DreModo
+  data_ini: string
+  data_fim: string
+}
+
+export type DreTipo = 'A' | 'ST' | 'M' | 'E' | 'I' | 'DT' | 'R' | 'L'
+
+export interface DreClienteRow {
+  cliente: string
+  valores: number[]
+  total:   number
+}
+
+export interface DreContaRow {
+  contab:    string
+  descricao: string
+  valores:   number[]
+  total:     number
+  clientes:  DreClienteRow[]
+}
+
+export interface DreLinha {
+  cod:          number
+  descricao:    string
+  prefixo:      string
+  tipo:         DreTipo
+  valores:      number[]
+  total:        number
+  ehPercentual: boolean
+  contas:       DreContaRow[]
+}
+
+export interface DreKpi {
+  recebimento:       number
+  lucro_bruto:       number
+  lucro_bruto_pct:   number
+  ebtida:            number
+  ebtida_pct:        number
+  resultado:         number
+  resultado_pct:     number
+  lucro_liquido:     number
+  lucro_liquido_pct: number
+}
+
+export interface DreResult {
+  periodos: number[]   // YYYYMM
+  linhas:   DreLinha[]
+  kpi:      DreKpi
+}
+
+export interface DreFiltrosDisponiveis {
+  anos: number[]
+}
