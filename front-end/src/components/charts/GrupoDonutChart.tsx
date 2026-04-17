@@ -1,11 +1,12 @@
 import { memo, useMemo, useCallback } from 'react'
 import type { EChartsOption } from 'echarts'
+import { PieChart } from 'lucide-react'
 import { ChartContainer, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoGrupo } from '@/hooks/useDashboardData'
 import { useFiltrosStore, useFilteredGrupos } from '@/store/filtros.store'
 import { formatCurrency } from '@/lib/utils'
 
-const DONUT_PALETTE = ['#00D4AA', '#4A90D9', '#7B5EA7', '#F5A623', '#E056A0', '#F7DC6F']
+const DONUT_PALETTE = ['#428D94', '#A70000', '#AA3E98', '#4A90D9', '#F5A623']
 
 function sanitizeName(name: string): string {
   return name.replace(/\uFFFD/g, 'Ç').trim()
@@ -75,34 +76,36 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       },
       legend: {
         type: 'scroll',
-        orient: 'horizontal',
-        top: 0,
-        left: 'center',
+        orient: 'vertical',
+        top: 'middle',
+        left: 'right',
+        align: 'left',
         pageButtonItemGap: 5,
         pageButtonGap: 8,
         pageButtonPosition: 'end',
-        pageIconColor: '#c9c9c9',
-        pageIconInactiveColor: '#3A4060',
+        pageIconColor: CHART_THEME.textColor,
+        pageIconInactiveColor: CHART_THEME.axisColor,
         pageIconSize: 12,
         pageTextStyle: {
-          color: '#c9c9c9',
+          color: CHART_THEME.textColor,
           fontSize: 10,
           fontFamily: 'Roboto',
         },
         itemWidth: 8,
         itemHeight: 8,
-        itemGap: 14,
+        itemGap: 10,
         icon: 'circle',
+        padding: [0, 4],
         // Desabilita show/hide nativo — controle fica no store
         selectedMode: false,
         textStyle: {
-          color: '#c9c9c9',
-          fontSize: 12,
+          color: CHART_THEME.textColor,
+          fontSize: 11,
           fontFamily: 'Roboto',
           rich: {
             dim: {
-              color: '#3A4060',
-              fontSize: 12,
+              color: CHART_THEME.axisColor,
+              fontSize: 11,
               fontFamily: 'Roboto',
             },
           },
@@ -121,7 +124,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       series: [{
         type: 'pie',
         radius: ['46%', '72%'],
-        center: ['50%', '58%'],
+        center: ['38%', '55%'],
         avoidLabelOverlap: true,
         // Label central fixo no buraco do donut — sempre centralizado
         label: {
@@ -133,7 +136,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
           ].join('\n'),
           rich: {
             value: {
-              color: activeGrupos.length > 0 ? '#00D4AA' : '#E8EAF0',
+              color: CHART_THEME.textColor,
               fontSize: 16,
               fontWeight: '600',
               fontFamily: 'Roboto',
@@ -175,6 +178,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
   return (
     <ChartContainer
       title="Faturamento por Grupo"
+      titleIcon={PieChart}
       option={option}
       loading={isLoading}
       error={isError}

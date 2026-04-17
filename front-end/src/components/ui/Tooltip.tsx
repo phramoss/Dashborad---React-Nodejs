@@ -45,7 +45,7 @@ export function Tooltip({ content, children, side = 'top', className }: TooltipP
           style={positionStyles}
           className={cn(
             'absolute z-50 px-2 py-1 rounded-lg text-xs whitespace-nowrap pointer-events-none',
-            'bg-surface-light border border-surface-border text-text-primary shadow-card',
+            'bg-[var(--surface-light)] border border-[var(--border)] text-text-primary shadow-card transition-colors duration-200',
             className,
           )}
         >

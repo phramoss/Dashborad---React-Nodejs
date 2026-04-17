@@ -1,7 +1,7 @@
-import { memo, useMemo, useState, useCallback, useEffect, Fragment } from 'react'
+import { memo, useMemo, useState, useCallback, useEffect, useRef, Fragment } from 'react'
 import {
   SlidersHorizontal, RefreshCw, Filter, ChevronRight, ChevronDown, ChevronUp,
-  TrendingDown, Grid3X3, Box, LayoutTemplate,Handshake,
+  TrendingDown, Grid3X3, Box, LayoutTemplate, Layers, BarChart2 as BarChart2Icon,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -26,6 +26,31 @@ import type {
   EstoqueFiltros,
   MatrizSort,
 } from '@/types'
+
+// ── Lazy-load hook ─────────────────────────────────────────────
+const PAGE_SIZE = 30
+
+function useLazyRows<T>(rows: T[]) {
+  const [page, setPage] = useState(1)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setPage(1) }, [rows])
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setPage(p => p + 1) },
+      { threshold: 0.1 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  const visible = rows.slice(0, page * PAGE_SIZE)
+  const hasMore = visible.length < rows.length
+  return { visible, hasMore, sentinelRef }
+}
 
 // ─── Helpers de formatação ────────────────────────────────────
 const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -304,7 +329,7 @@ interface HierarchyTableProps {
   loading?: boolean
   filtros:  EstoqueFiltros
   onFilter: (p: Partial<EstoqueFiltros>) => void
-  icon:     React.ElementType
+  icon?:    React.ElementType
 }
 
 const HierarchyTable = memo(function HierarchyTable({
@@ -358,14 +383,18 @@ const HierarchyTable = memo(function HierarchyTable({
     })
   }, [rawRows, sortCol, sortDir])
 
+  const { visible: visibleRows, hasMore: hasMoreRows, sentinelRef: rowSentinelRef } = useLazyRows(rows)
+
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
       {/* Título */}
       <div className="px-3 py-2 border-b border-surface-border shrink-0">
-        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-          {title}
-        </p>
-        
+        <div className="flex items-center gap-2">
+          {Icon && <Icon size={12} className="text-brand shrink-0" />}
+          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
+            {title}
+          </p>
+        </div>
       </div>
 
       {/* Cabeçalho fixo */}
@@ -395,7 +424,8 @@ const HierarchyTable = memo(function HierarchyTable({
             <p className="text-[11px] text-text-muted">Sem dados</p>
           </div>
         ) : (
-          rows.map((row, idx) => {
+          <>
+          {visibleRows.map((row, idx) => {
             const key        = buildRowKey([], 0, row.value)
             const isExpanded = expandedKeys.has(key)
             const isSelected = isRowActive(0, row.value, level0Field, [], filtros)
@@ -461,7 +491,9 @@ const HierarchyTable = memo(function HierarchyTable({
                 )}
               </Fragment>
             )
-          })
+          })}
+          {hasMoreRows && <div ref={rowSentinelRef} className="h-1" />}
+          </>
         )}
       </div>
 
@@ -691,6 +723,8 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
     return { periodos, items, pivot, totaisPeriodo }
   }, [rows])
 
+  const { visible: visibleItems, hasMore: hasMoreItems, sentinelRef: itemSentinelRef } = useLazyRows(items)
+
   function periodoLabel(key: string) {
     const [ano, mes] = key.split('-')
     return `${MESES_ABREV[Number(mes) - 1] ?? mes} de ${ano}`
@@ -706,9 +740,12 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
     return (
       <Card noPadding>
         <div className="px-3 py-2 border-b border-surface-border">
-          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-            Estoque por Faturamento
-          </p>
+          <div className="flex items-center gap-2">
+            <BarChart2Icon size={12} className="text-brand shrink-0" />
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
+              Estoque por Faturamento
+            </p>
+          </div>
         </div>
         <div className="flex flex-col gap-1 p-3">
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
@@ -720,9 +757,12 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-surface-border shrink-0">
-        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-          Estoque por Faturamento
-        </p>
+        <div className="flex items-center gap-2">
+          <BarChart2Icon size={12} className="text-brand shrink-0" />
+          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
+            Estoque por Faturamento
+          </p>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -781,7 +821,7 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
             </thead>
 
             <tbody>
-              {items.map((item, idx) => {
+              {visibleItems.map((item, idx) => {
                 const key        = buildRowKey([], 0, item.value)
                 const isExpanded = expandedKeys.has(key)
                 const isSelected = isRowActive(0, item.value, level0Field, [], filtros, true)
@@ -861,6 +901,10 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
                   </Fragment>
                 )
               })}
+
+              {hasMoreItems && (
+                <tr><td colSpan={2 + periodos.length * 2 + 1}><div ref={itemSentinelRef} className="h-1" /></td></tr>
+              )}
 
               {/* Linha de total */}
               <tr className="bg-surface-light border-t-2 border-surface-border font-semibold sticky bottom-0">
@@ -1240,6 +1284,7 @@ export function EstoquePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <ErrorBoundary>
           <HierarchyTable
+            icon={Layers}
             title="Chapa / Recortado"
             headers={CHAPA_HEADERS}
             fields={CHAPA_FIELDS}
@@ -1252,7 +1297,7 @@ export function EstoquePage() {
         </ErrorBoundary>
         <ErrorBoundary>
           <HierarchyTable
-            icon = {Handshake}
+            icon={Box}
             title="Bloco"
             headers={BLOCO_HEADERS}
             fields={BLOCO_FIELDS}

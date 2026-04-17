@@ -15,7 +15,7 @@ export function GlobalLoadingBar() {
       <div
         className="h-full w-full animate-pulse"
         style={{
-          background: 'linear-gradient(90deg, transparent 0%, #00D4AA 40%, #00FFCC 60%, transparent 100%)',
+          background: 'linear-gradient(90deg, transparent 0%, #428D94 40%, #5AB5BC 60%, transparent 100%)',
           backgroundSize: '200% 100%',
           animation: isLoading
             ? 'shimmer 1.4s ease-in-out infinite'

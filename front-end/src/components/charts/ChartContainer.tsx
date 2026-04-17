@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useEffect, useState } from 'react'
+import { memo, useCallback, useRef, useEffect, useState, type ElementType } from 'react'
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { Card } from '@/components/ui/Card'
@@ -8,34 +8,56 @@ import { ErrorState } from '@/components/ui/ErrorState'
 import { cn } from '@/lib/utils'
 
 export const CHART_COLORS = {
-  teal:   '#00D4AA',
-  purple: '#7B5EA7',
+  teal:   '#428D94',
+  red:    '#A70000',
+  purple: '#AA3E98',
   blue:   '#4A90D9',
   orange: '#F5A623',
   pink:   '#E056A0',
   yellow: '#F7DC6F',
-  gray:   '#4A5280',
+  gray:   '#666666',
 } as const
 
 export const CHART_THEME = {
-  textColor:     '#8892B0',
-  axisColor:     '#2D3554',
-  tooltipBg:    '#0E1120',
-  tooltipBorder: '#2D3554',
-  gridLineColor: '#1E2748',
+  get textColor()     { return getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8892B0' },
+  get axisColor()     { return getComputedStyle(document.documentElement).getPropertyValue('--chart-axis').trim() || 'rgba(66,141,148,0.20)' },
+  get tooltipBg()     { return '#111111' },
+  get tooltipBorder() { return '#333333' },
+  get gridLineColor() { return getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim() || 'rgba(66,141,148,0.08)' },
 } as const
+
+export function chartGradientColor(index: number, total: number): string {
+  const t = total <= 1 ? 1 : index / (total - 1)
+  const r = Math.round(0xA7 + (0x42 - 0xA7) * t)
+  const g = Math.round(0x00 + (0x8D - 0x00) * t)
+  const b = Math.round(0x00 + (0x94 - 0x00) * t)
+  return `rgb(${r},${g},${b})`
+}
+
+/** Verde: do verde vivo (#22C55E) no topo até o verde escuro (#166534) no fundo */
+export function chartGreenColor(index: number, total: number): string {
+  const t = total <= 1 ? 0 : index / (total - 1)
+  const r = Math.round(0x22 + (0x16 - 0x22) * t)   // 34 → 22
+  const g = Math.round(0xC5 + (0x65 - 0xC5) * t)   // 197 → 101
+  const b = Math.round(0x5E + (0x34 - 0x5E) * t)   // 94 → 52
+  return `rgb(${r},${g},${b})`
+}
 
 export function buildTooltipHtml(opts: {
   title: string
   rows: { label: string; value: string; color?: string; highlight?: boolean }[]
 }): string {
+  const borderVar = '#333333'
+  const textVar   = '#e0e0e0'
+  const brandVar  = '#428D94'
+
   const rows = opts.rows
     .map(({ label, value, color, highlight }) => `
       <div style="display:flex;justify-content:space-between;align-items:center;
                   gap:16px;margin-top:5px;padding-top:5px;
-                  ${highlight ? 'border-top:1px solid #2D3554' : ''}">
+                  ${highlight ? `border-top:1px solid ${borderVar}` : ''}">
         <span style="display:flex;align-items:center;gap:6px;
-                     color:${highlight ? '#E8EAF0' : '#c9c9c9'};font-size:12px;font-family:'Roboto',sans-serif">
+                     color:${textVar};font-size:12px;font-family:'Roboto',sans-serif">
           ${color
             ? `<span style="width:7px;height:7px;border-radius:50%;
                             background:${color};flex-shrink:0;
@@ -45,7 +67,7 @@ export function buildTooltipHtml(opts: {
         </span>
         <span style="font-size:${highlight ? '18px' : '16px'};
                      font-weight:${highlight ? '700' : '600'};
-                     color:${highlight ? '#00D4AA' : '#E8EAF0'};
+                     color:${highlight ? brandVar : textVar};
                      font-family:'Roboto',monospace">
           ${value}
         </span>
@@ -54,8 +76,8 @@ export function buildTooltipHtml(opts: {
 
   return `
     <div style="font-family:'Roboto',sans-serif;padding:4px 2px;min-width:180px">
-      <div style="font-size:14px;font-weight:700;color:#00D4AA;text-transform:uppercase;
-                  letter-spacing:.1em;padding-bottom:7px;border-bottom:1px solid #2D3554">
+      <div style="font-size:14px;font-weight:700;color:${brandVar};text-transform:uppercase;
+                  letter-spacing:.1em;padding-bottom:7px;border-bottom:1px solid ${borderVar}">
         ${opts.title}
       </div>
       ${rows}
@@ -81,6 +103,7 @@ export type ChartClickParams = {
 
 interface ChartContainerProps {
   title?: string
+  titleIcon?: ElementType
   subtitle?: string
   option: EChartsOption
   height?: number | string
@@ -102,6 +125,7 @@ interface ChartContainerProps {
 
 export const ChartContainer = memo(function ChartContainer({
   title,
+  titleIcon: TitleIcon,
   subtitle,
   option,
   height = 280,
@@ -194,9 +218,12 @@ export const ChartContainer = memo(function ChartContainer({
         <div className="flex items-start justify-between px-4 pt-3 pb-1">
           <div>
             {title && (
-              <h3 className="text-[12px] font-semibold text-text-secondary uppercase tracking-widest" style={{ fontFamily: 'Roboto, sans-serif' }}>
-                {title}
-              </h3>
+              <div className="flex items-center gap-1.5">
+                {TitleIcon && <TitleIcon size={13} className="text-brand flex-shrink-0" />}
+                <h3 className="text-[12px] font-semibold uppercase tracking-widest" style={{ fontFamily: 'Roboto, sans-serif', color: 'var(--text-primary)' }}>
+                  {title}
+                </h3>
+              </div>
             )}
             {subtitle && (
               <p className="text-[12px] text-text-muted mt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }}>{subtitle}</p>

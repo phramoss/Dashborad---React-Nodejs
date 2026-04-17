@@ -104,66 +104,69 @@ router.get('/simulador/matriz', async (req, res, next) => {
     const allParams = [...pV, ...pE]
 
     const sql = `
+    SELECT
+      E.COD_MA,
+      E.MATERIAL,
+      E.N_BLOCO,
+      E.PC,
+      E.PC_DISP,                          
+      COALESCE(V.sum_pc, 0)  AS VENDIDAS,
+      E.COMPRA,
+      E.FRETE,
+      E.SERRADA,
+      E.POLIMENTO,
+      E.OUTROS_CUSTOS,
+      E.OUT_DESP,
+      E.SERVICOS,
+      E.CUSTO_TOTAL,
+      E.METROS_TOTAL
+    FROM (
       SELECT
-        E.COD_MA,
-        E.MATERIAL,
-        E.N_BLOCO,
-        E.PC,
-        COALESCE(V.sum_pc, 0)  AS VENDIDAS,
-        E.COMPRA,
-        E.FRETE,
-        E.SERRADA,
-        E.POLIMENTO,
-        E.OUTROS_CUSTOS,
-        E.OUT_DESP,
-        E.SERVICOS,
-        E.CUSTO_TOTAL,
-        E.METROS_TOTAL
-      FROM (
-        SELECT
-          P.COD_MA,
-          MA.NOM_MA                                                   AS MATERIAL,
-          P.BLOCO_PROD                                                AS N_BLOCO,
-          COUNT(*)                                                    AS PC,
-          SUM(COALESCE(P.TOTALG_DOC,   0))                           AS COMPRA,
-          SUM(COALESCE(P.FRETE_DOC,    0))                           AS FRETE,
-          SUM(COALESCE(P.VRSERR_PROD,  0))                           AS SERRADA,
-          SUM(COALESCE(P.VRPOL_PROD,   0))                           AS POLIMENTO,
-          SUM(COALESCE(P.VRESTC_PROD,  0))                           AS OUTROS_CUSTOS,
-          SUM(COALESCE(P.OUTDESP_DOC,  0))                           AS OUT_DESP,
-          SUM(COALESCE(P.VRSERV_PROD,  0))                           AS SERVICOS,
-          SUM(
-            COALESCE(P.TOTALG_DOC,   0) + COALESCE(P.FRETE_DOC,    0)
-            + COALESCE(P.OUTDESP_DOC,  0) + COALESCE(P.VRSERR_PROD,  0)
-            + COALESCE(P.VRPOL_PROD,   0) + COALESCE(P.VRCORTE_PROD, 0)
-            + COALESCE(P.VRSERV_PROD,  0) + COALESCE(P.VRESTC_PROD,  0)
-          )                                                           AS CUSTO_TOTAL,
-          SUM(P.COMPLQUNSD_PROD * P.LARGLQUNSD_PROD)                AS METROS_TOTAL
-        FROM PROD P
-        INNER JOIN MA ON P.COD_MA = MA.COD_MA
-        WHERE P.BLOCO_PROD > 0
-          AND ${sitFilter}
-          AND P.NAT_ESTQ = 'I'
-          AND P.CHAPA_PROD > 0
-          ${andE}
-        GROUP BY P.COD_MA, MA.NOM_MA, P.BLOCO_PROD
-      ) E
-      LEFT JOIN (
-        SELECT
-          PR.COD_MA     AS CODIGOMA,
-          PR.BLOCO_PROD AS BLOCO,
-          SUM(DI.QTDEPC_DOCIT) AS sum_pc
-        FROM DOCIT DI
-        INNER JOIN PROD PR ON DI.COD_ESTQ = PR.COD_ESTQ
-        INNER JOIN DOC  D  ON D.COD_DOC   = DI.COD_DOC
-        WHERE PR.BLOCO_PROD > 0
-          AND PR.NAT_ESTQ  = 'I'
-          AND D.MOV_DOC    = 'S'
-          AND D.COD_AIDF   = '-1'
-          ${andV}
-        GROUP BY PR.COD_MA, PR.BLOCO_PROD
-      ) V ON V.CODIGOMA = E.COD_MA AND V.BLOCO = E.N_BLOCO
-      ORDER BY E.MATERIAL, E.N_BLOCO
+        P.COD_MA,
+        MA.NOM_MA                                                   AS MATERIAL,
+        P.BLOCO_PROD                                                AS N_BLOCO,
+        COUNT(*)                                                    AS PC,
+        SUM(CASE WHEN P.SIT_PROD <> 0 THEN 1 ELSE 0 END)           AS PC_DISP,   -- corrigido
+        SUM(COALESCE(P.TOTALG_DOC,   0))                           AS COMPRA,
+        SUM(COALESCE(P.FRETE_DOC,    0))                           AS FRETE,
+        SUM(COALESCE(P.VRSERR_PROD,  0))                           AS SERRADA,
+        SUM(COALESCE(P.VRPOL_PROD,   0))                           AS POLIMENTO,
+        SUM(COALESCE(P.VRESTC_PROD,  0))                           AS OUTROS_CUSTOS,
+        SUM(COALESCE(P.OUTDESP_DOC,  0))                           AS OUT_DESP,
+        SUM(COALESCE(P.VRSERV_PROD,  0))                           AS SERVICOS,
+        SUM(
+          COALESCE(P.TOTALG_DOC,   0) + COALESCE(P.FRETE_DOC,    0)
+          + COALESCE(P.OUTDESP_DOC,  0) + COALESCE(P.VRSERR_PROD,  0)
+          + COALESCE(P.VRPOL_PROD,   0) + COALESCE(P.VRCORTE_PROD, 0)
+          + COALESCE(P.VRSERV_PROD,  0) + COALESCE(P.VRESTC_PROD,  0)
+        )                                                           AS CUSTO_TOTAL,
+        SUM(P.COMPLQUNSD_PROD * P.LARGLQUNSD_PROD)                AS METROS_TOTAL
+      FROM PROD P
+      INNER JOIN MA ON P.COD_MA = MA.COD_MA
+      WHERE P.BLOCO_PROD > 0
+        AND ${sitFilter}
+        AND P.NAT_ESTQ = 'I'
+        AND P.CHAPA_PROD > 0
+        ${andE}
+      GROUP BY P.COD_MA, MA.NOM_MA, P.BLOCO_PROD
+    ) E
+    LEFT JOIN (
+      SELECT
+        PR.COD_MA     AS CODIGOMA,
+        PR.BLOCO_PROD AS BLOCO,
+        SUM(DI.QTDEPC_DOCIT) AS sum_pc
+      FROM DOCIT DI
+      INNER JOIN PROD PR ON DI.COD_ESTQ = PR.COD_ESTQ
+      INNER JOIN DOC  D  ON D.COD_DOC   = DI.COD_DOC
+      WHERE PR.BLOCO_PROD > 0
+        AND PR.NAT_ESTQ  = 'I'
+        AND D.MOV_DOC    = 'S'
+        AND D.COD_AIDF   = '-1'
+        ${andV}
+      GROUP BY PR.COD_MA, PR.BLOCO_PROD
+    ) V ON V.CODIGOMA = E.COD_MA AND V.BLOCO = E.N_BLOCO
+    WHERE E.PC_DISP > 0                   
+    ORDER BY E.MATERIAL, E.N_BLOCO
     `
 
     const rows = await query(sql, allParams)

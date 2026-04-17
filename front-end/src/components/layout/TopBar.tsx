@@ -23,11 +23,11 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const page        = PAGE_TITLES[location.pathname]
 
   return (
-    <header className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-surface-border bg-surface">
+    <header className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-[var(--border)] bg-[var(--topbar-bg)] transition-colors duration-200">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all md:hidden"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-[var(--surface-light)] transition-all md:hidden"
         >
           <Menu size={16} strokeWidth={1.5} />
         </button>
@@ -62,7 +62,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-surface-light transition-all relative">
+        <button className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-[var(--surface-light)] transition-all relative">
           <Bell size={14} strokeWidth={1.5} />
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-status-danger rounded-full" />
         </button>

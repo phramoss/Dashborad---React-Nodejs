@@ -5,20 +5,23 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import App from './App'
 import './index.css'
 
+// ─── Early theme init (antes do React montar) ─────────────────
+const saved = JSON.parse(localStorage.getItem('app-theme') || '{}')
+document.documentElement.setAttribute('data-theme', saved?.state?.theme ?? 'dark')
+
 // ─── QueryClient configurado para produção ────────────────────
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
         const status = (error as { response?: { status: number } })?.response?.status
-        // Não faz retry em erros de cliente (400-499)
         if (status && status >= 400 && status < 500) return false
         return failureCount < 2
       },
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 10,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: true,  // Refetch quando volta a internet
+      refetchOnReconnect: true,
     },
     mutations: {
       retry: 1,
@@ -30,7 +33,6 @@ const queryClient = new QueryClient({
 queryClient.getQueryCache().subscribe((event) => {
   if (event.type === 'updated' && event.query.state.status === 'error') {
     const error = event.query.state.error as { response?: { status: number }; message?: string }
-    // Em produção: enviar para Sentry aqui
     if (import.meta.env.DEV) {
       console.error('[Query Error]', event.query.queryKey, error?.message)
     }

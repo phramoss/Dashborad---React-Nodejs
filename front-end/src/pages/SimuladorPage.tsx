@@ -2,7 +2,7 @@ import { memo, useMemo, useState, useCallback, useRef, useEffect, useTransition 
 import {
   SlidersHorizontal, RefreshCw, BarChart2, TrendingUp,
   ChevronUp, ChevronDown, ChevronRight, Package, DollarSign, Percent,
-  Calculator, Target, AlertCircle, ShoppingCart, Trash2, Plus, Search, Filter,
+  Calculator, Target, AlertCircle, ShoppingCart, Trash2, Plus, Search, Filter, Settings,Layers,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -52,12 +52,14 @@ interface SimuladorCalcs {
   precoVendaVar:   number | 'S/ESTOQUE'
 }
 
-function calcSimulador(r: SimuladorResumo, varLucro: number): SimuladorCalcs {
+function calcSimulador(r: SimuladorResumo, varLucro: number, dvariavel?: number, dfixa?: number): SimuladorCalcs {
   const {
     sumCustoTotal, sumMetrosTotal, sumPcBloco,
-    maxDfixa, maxDvariavel, maxLucro,
+    maxDfixa: _maxDfixa, maxDvariavel: _maxDvariavel, maxLucro,
     sumVendasTotal, sumVendasPc, sumVendasQtde,
   } = r
+  const maxDfixa    = dfixa    !== undefined ? dfixa    : _maxDfixa
+  const maxDvariavel = dvariavel !== undefined ? dvariavel : _maxDvariavel
 
   const pcRestante = sumPcBloco - sumVendasPc
 
@@ -245,9 +247,10 @@ interface LucroSliderProps {
   value:     number
   onChange:  (v: number) => void
   disabled?: boolean
+  label?:    string
 }
 
-const LucroSlider = memo(function LucroSlider({ value, onChange, disabled }: LucroSliderProps) {
+const LucroSlider = memo(function LucroSlider({ value, onChange, disabled, label }: LucroSliderProps) {
   const pct = +(value * 100).toFixed(2)
 
   const handleSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -265,7 +268,7 @@ const LucroSlider = memo(function LucroSlider({ value, onChange, disabled }: Luc
     <div className="rounded-lg '#428D94' border '#428D94' p-3 flex flex-col gap-1 min-w-0 h-full">
       <div className="flex items-center justify-between gap-1">
         <p className="text-[10px] font-medium text-text-muted uppercase tracking-wider">
-          % DE LUCRO
+          {label ?? '% DE LUCRO'}
         </p>
         <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-chart-orange/15">
           <Percent size={12} className="text-chart-orange" strokeWidth={1.5} />
@@ -411,7 +414,7 @@ const MatrizGroupRow = memo(function MatrizGroupRow({ group: g, isActive, isExpa
   return (
     <tr
       className={cn(
-        'border-b border-surface-border/40 cursor-pointer select-none transition-colors',
+        'border-b border-[var(--line)] cursor-pointer select-none transition-colors',
         isActive ? 'bg-brand/10 hover:bg-brand/15' : 'bg-surface-light/20 hover:bg-surface-light/60',
       )}
       onClick={() => onToggleFilter(g.codMa)}
@@ -464,7 +467,7 @@ const MatrizBlocoRow = memo(function MatrizBlocoRow({ row, isActive, onToggleFil
   return (
     <tr
       className={cn(
-        'border-b border-surface-border/20 cursor-pointer select-none transition-colors',
+        'border-b border-[var(--line)] cursor-pointer select-none transition-colors',
         isActive ? 'bg-chart-blue/10 hover:bg-chart-blue/15' : 'hover:bg-surface-light/30',
       )}
       onClick={e => onToggleFilter(row.nBloco, e)}
@@ -508,10 +511,11 @@ interface MatrizProps {
   filtrosMateriais: number[]
   filtrosBlocos:    number[]
   setFiltros:       (p: Partial<SimuladorFiltros>) => void
+  maxHeight?:       number
 }
 
 const MatrizMateriais = memo(function MatrizMateriais({
-  rows, loading, filtrosMateriais, filtrosBlocos, setFiltros,
+  rows, loading, filtrosMateriais, filtrosBlocos, setFiltros, maxHeight,
 }: MatrizProps) {
   const { sort, toggle } = useSortState()
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
@@ -608,7 +612,10 @@ const MatrizMateriais = memo(function MatrizMateriais({
   const thLeft = 'px-2.5 py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap text-left cursor-pointer select-none group hover:text-text-primary transition-colors'
 
   return (
-    <div className="overflow-x-auto">
+    <div
+      className="overflow-x-auto overflow-y-auto"
+      style={{ maxHeight: maxHeight ?? 280 }}
+    >
       <table className="min-w-max w-full border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-surface-light">
           <tr className="border-b border-surface-border">
@@ -659,7 +666,7 @@ const MatrizMateriais = memo(function MatrizMateriais({
           })}
         </tbody>
 
-        <tfoot className="sticky bottom-0 z-[5] bg-surface-light border-t-2 border-surface-border">
+        <tfoot className="sticky bottom-0 z-[5] bg-surface-light border-t-2 border-[var(--line)]">
           <tr>
             <td className={cn(MTRZ_TD_LEFT, 'sticky left-0 z-20 bg-surface-light font-semibold text-brand')} style={{ minWidth: MTRZ_COL_MAT }}>
               TOTAL
@@ -678,8 +685,9 @@ const MatrizMateriais = memo(function MatrizMateriais({
 })
 
 interface VendasTableProps {
-  rows:    SimuladorVendaRow[]
-  loading: boolean
+  rows:       SimuladorVendaRow[]
+  loading:    boolean
+  maxHeight?: number
 }
 
 interface VendaGrupo {
@@ -707,7 +715,7 @@ const VPedidoRow = memo(function VPedidoRow({ r }: { r: SimuladorVendaRow }) {
   const td  = 'px-2.5 py-1.5 text-[11px] tabular-nums text-right text-text-primary whitespace-nowrap'
   const tdL = 'px-2.5 py-1.5 text-[11px] text-left text-text-primary whitespace-nowrap'
   return (
-    <tr className="border-b border-surface-border/20 hover:bg-surface-light/20 transition-colors">
+    <tr className="border-b border-[var(--line)] hover:bg-surface-light/20 transition-colors">
       <td className={cn(tdL, 'pl-8 text-text-muted')}>
         <div className="flex items-center gap-1">
           <span className="text-text-muted/30 text-[10px]">└</span>
@@ -735,7 +743,7 @@ const VGrupoRow = memo(function VGrupoRow({ grupo: g, isExp, onToggle }: VGrupoR
   const td  = 'px-2.5 py-1.5 text-[11px] tabular-nums text-right text-text-primary whitespace-nowrap'
   return (
     <tr
-      className="border-b border-surface-border/40 cursor-pointer select-none bg-surface-light/20 hover:bg-surface-light/60 transition-colors"
+      className="border-b border-[var(--line)] cursor-pointer select-none bg-surface-light/20 hover:bg-surface-light/60 transition-colors"
       onClick={handleClick}
     >
       <td className={cn(tdL, 'font-semibold')}>
@@ -754,7 +762,7 @@ const VGrupoRow = memo(function VGrupoRow({ grupo: g, isExp, onToggle }: VGrupoR
   )
 })
 
-const VendasTable = memo(function VendasTable({ rows, loading }: VendasTableProps) {
+const VendasTable = memo(function VendasTable({ rows, loading, maxHeight }: VendasTableProps) {
   const MAX_ROWS = 500
   const limitedRows = useMemo(() => rows.slice(0, MAX_ROWS), [rows])
   const grupos = useMemo(() => buildVendasGrupos(limitedRows), [limitedRows])
@@ -794,7 +802,10 @@ const VendasTable = memo(function VendasTable({ rows, loading }: VendasTableProp
   const thBase = 'px-2.5 py-2 text-[10px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap'
 
   return (
-    <div className="overflow-x-auto">
+    <div
+      className="overflow-x-auto overflow-y-auto"
+      style={{ maxHeight: maxHeight ?? 240 }}
+    >
       <table className="min-w-max w-full border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-surface-light">
           <tr className="border-b border-surface-border">
@@ -817,7 +828,7 @@ const VendasTable = memo(function VendasTable({ rows, loading }: VendasTableProp
             ]
           })}
         </tbody>
-        <tfoot className="sticky bottom-0 bg-surface-light border-t-2 border-surface-border">
+        <tfoot className="sticky bottom-0 bg-surface-light border-t-2 border-[var(--line)]">
           <tr>
             <td className="px-2.5 py-1.5 text-[11px] font-semibold text-brand">TOTAL</td>
             <td />
@@ -865,7 +876,7 @@ const PedidoRowItem = memo(function PedidoRowItem({ item, dfixa, dvariavel, varL
   const td  = 'px-2.5 py-1.5 text-[11px] tabular-nums text-right text-text-primary whitespace-nowrap'
   const tdL = 'px-2.5 py-1.5 text-[11px] text-left text-text-primary whitespace-nowrap'
   return (
-    <tr className="border-b border-surface-border/30 hover:bg-surface-light/20 transition-colors">
+    <tr className="border-b border-[var(--line)] hover:bg-surface-light/20 transition-colors">
       <td className={cn(tdL, 'font-medium')}>{item.material}</td>
       <td className={cn(td, 'text-[color:var(--color-chart-orange,#f97316)] font-semibold')}>{item.nBloco}</td>
       <td className={cn(td, 'text-text-muted')}>{item.chapa}</td>
@@ -901,10 +912,11 @@ interface PedidoTableProps {
   onRemove:         (chapaKey: string) => void
   onUpdateQtde:     (chapaKey: string, v: number) => void
   onUpdateDesconto: (chapaKey: string, v: number) => void
+  maxHeight?:       number
 }
 
 const PedidoTable = memo(function PedidoTable({
-  pedido, dfixa, dvariavel, varLucro, onRemove, onUpdateQtde, onUpdateDesconto,
+  pedido, dfixa, dvariavel, varLucro, onRemove, onUpdateQtde, onUpdateDesconto, maxHeight,
 }: PedidoTableProps) {
   const items = useMemo(() => Array.from(pedido.values()), [pedido])
 
@@ -947,7 +959,10 @@ const PedidoTable = memo(function PedidoTable({
           {fmtBRL(totais.comLucro)}
         </span>
       </div>
-      <div className="overflow-x-auto max-h-[240px] overflow-y-auto">
+      <div
+        className="overflow-x-auto overflow-y-auto"
+        style={{ maxHeight: maxHeight ?? 240 }}
+      >
         <table className="min-w-max w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-surface-light">
             <tr className="border-b border-surface-border">
@@ -980,7 +995,7 @@ const PedidoTable = memo(function PedidoTable({
               />
             ))}
           </tbody>
-          <tfoot className="sticky bottom-0 bg-surface-light border-t-2 border-surface-border">
+          <tfoot className="sticky bottom-0 bg-surface-light border-t-2 border-[var(--line)]">
             <tr>
               <td className="px-2.5 py-1.5 text-[11px] font-semibold text-brand">TOTAL</td>
               <td className={cn(ftd, 'text-[color:var(--color-chart-orange,#f97316)]')}>{stats.blocos}</td>
@@ -1046,7 +1061,7 @@ const PedidoChapaRow = memo(function PedidoChapaRow({ row, isInPedido, onAdd }: 
   const tdL = 'px-2.5 py-1.5 text-[11px] text-left text-text-primary whitespace-nowrap'
   return (
     <tr className={cn(
-      'border-b border-surface-border/20 transition-colors',
+      'border-b border-[var(--line)] transition-colors',
       isInPedido
         ? 'bg-[color:var(--color-chart-orange,#f97316)]/[.07]'
         : 'hover:bg-surface-light/30',
@@ -1085,10 +1100,11 @@ interface SimuladorPedidosProps {
   loading:     boolean
   pedidoSet:   Set<string>
   onAddChapa:  (row: SimuladorChapaRow) => void
+  maxHeight?:  number
 }
 
 const SimuladorPedidos = memo(function SimuladorPedidos({
-  rows, loading, pedidoSet, onAddChapa,
+  rows, loading, pedidoSet, onAddChapa, maxHeight,
 }: SimuladorPedidosProps) {
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -1155,7 +1171,10 @@ const SimuladorPedidos = memo(function SimuladorPedidos({
           <p className="text-sm text-text-muted">Nenhuma chapa disponível</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div
+          className="overflow-x-auto overflow-y-auto"
+          style={{ maxHeight: maxHeight ?? 320 }}
+        >
           <table className="min-w-max w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-surface-light">
               <tr className="border-b border-surface-border">
@@ -1177,7 +1196,7 @@ const SimuladorPedidos = memo(function SimuladorPedidos({
                   // Material row
                   <tr
                     key={matKey}
-                    className="border-b border-surface-border/40 cursor-pointer select-none bg-surface-light/20 hover:bg-surface-light/60 transition-colors"
+                    className="border-b border-[var(--line)] cursor-pointer select-none bg-surface-light/20 hover:bg-surface-light/60 transition-colors"
                     onClick={() => toggleExpand(matKey)}
                   >
                     <td className={cn(tdL, 'font-semibold')} colSpan={7}>
@@ -1195,7 +1214,7 @@ const SimuladorPedidos = memo(function SimuladorPedidos({
                       // Bloco row
                       <tr
                         key={blocoKey}
-                        className="border-b border-surface-border/30 cursor-pointer select-none hover:bg-surface-light/30 transition-colors"
+                        className="border-b border-[var(--line)] cursor-pointer select-none hover:bg-surface-light/30 transition-colors"
                         onClick={e => { e.stopPropagation(); toggleExpand(blocoKey) }}
                       >
                         <td className={cn(tdL, 'pl-6 text-text-muted')} colSpan={7}>
@@ -1408,6 +1427,14 @@ export function SimuladorPage() {
 
   const [varLucro, setVarLucro] = useState(DEFAULT_VAR_LUCRO)
   const didInitLucro = useRef(false)
+  const [pedidoLucro, setPedidoLucro] = useState(DEFAULT_VAR_LUCRO)
+  const didInitPedidoLucro = useRef(false)
+  const [dVariavel, setDVariavel] = useState(0)
+  const [dFixa, setDFixa]         = useState(0)
+  const didInitIndicadores = useRef(false)
+  const [pedidoDVariavel, setPedidoDVariavel] = useState(0)
+  const [pedidoDFixa,     setPedidoDFixa]     = useState(0)
+  const didInitPedidoParams = useRef(false)
   const [, startTransition] = useTransition()
 
   // ── pedido state — totalmente isolado de filtros e queries ──────────────────
@@ -1470,13 +1497,53 @@ export function SimuladorPage() {
     if (!didInitLucro.current && resumoData && resumoData.maxLucro > 0) {
       setVarLucro(resumoData.maxLucro)
       didInitLucro.current = true
-      
+      if (!didInitPedidoLucro.current) {
+        setPedidoLucro(resumoData.maxLucro)
+        didInitPedidoLucro.current = true
+      }
+      if (!didInitIndicadores.current) {
+        setDVariavel(resumoData.maxDvariavel)
+        setDFixa(resumoData.maxDfixa)
+        didInitIndicadores.current = true
+      }
+      if (!didInitPedidoParams.current) {
+        setPedidoDVariavel(resumoData.maxDvariavel)
+        setPedidoDFixa(resumoData.maxDfixa)
+        didInitPedidoParams.current = true
+      }
     }
- }, [resumoData])
+  }, [resumoData])
 
   const matrizRows = useMemo(() => matrizData?.rows ?? [], [matrizData?.rows])
   const chapasRows = useMemo(() => chapasData?.rows ?? [], [chapasData?.rows])
   const vendasRows = useMemo(() => vendasData?.rows ?? [], [vendasData?.rows])
+
+  const pedidoCalcs = useMemo(() => {
+    const items = Array.from(pedido.values())
+    if (items.length === 0) return null
+
+    const denV = 1 - pedidoDFixa - pedidoDVariavel - pedidoLucro
+    const desp = 1 - pedidoDVariavel - pedidoDFixa
+
+    return items.reduce((acc, item) => {
+      const precoComLucroM2 = denV !== 0 ? safe(item.custoM2 / denV) : 0
+      const valorBruto      = precoComLucroM2 * item.qtde
+      const valorTotal      = valorBruto - item.desconto
+      const custoQtde       = item.custoM2 * item.qtde
+      const lucro           = valorTotal - custoQtde
+      const despesas        = valorTotal * desp
+      const lucroLiquido    = despesas - lucro
+
+      return {
+        totalCusto:      acc.totalCusto      + custoQtde,
+        totalValor:      acc.totalValor      + valorTotal,
+        totalLucro:      acc.totalLucro      + lucroLiquido,
+        totalM2:         acc.totalM2         + item.qtde,
+        totalPc:         acc.totalPc         + item.pc,
+        totalDesconto:   acc.totalDesconto   + item.desconto,
+      }
+    }, { totalCusto: 0, totalValor: 0, totalLucro: 0, totalM2: 0, totalPc: 0, totalDesconto: 0 })
+  }, [pedido, pedidoDFixa, pedidoDVariavel, pedidoLucro])
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handleSetFiltrosDebounced = useCallback((partial: Partial<SimuladorFiltros>) => {
@@ -1488,11 +1555,23 @@ export function SimuladorPage() {
 
   const calcs = useMemo<SimuladorCalcs | null>(() => {
     if (!resumoData) return null
-    return calcSimulador(resumoData, varLucro)
-  }, [resumoData, varLucro])
+    return calcSimulador(resumoData, varLucro, dVariavel, dFixa)
+  }, [resumoData, varLucro, dVariavel, dFixa])
 
   const r = resumoData
   const activeCount = filtros.materiais.length + filtros.blocos.length + filtros.situacao.length
+
+  const faturamentoVariavel = useMemo(() => {
+    if(!calcs || calcs.precoVendaVar === 'S/ESTOQUE') return null
+  
+    const preco = calcs.precoVendaVar
+  
+    const totalM2Disponivel = matrizRows.reduce(
+      (sum, row) => sum + Math.max(0, row.metrosTotal - row.vendidas),0
+    )
+  
+    return totalM2Disponivel * preco
+  }, [matrizRows, calcs])
 
   return (
     <div className="flex flex-col gap-4 max-w-[1800px] mx-auto pb-8">
@@ -1508,7 +1587,7 @@ export function SimuladorPage() {
         />
       </div>
 
-      {/* BLOCO 1 — Materiais */}
+       {/* BLOCO 1 — Materiais */}
       <ErrorBoundary>
         <Card noPadding>
           <div className="px-4 py-2.5 border-b border-surface-border flex items-center gap-2">
@@ -1517,15 +1596,14 @@ export function SimuladorPage() {
               Materiais
             </h2>
           </div>
-          <div className="max-h-[280px] overflow-y-auto overflow-x-auto">
-            <MatrizMateriais
-              rows={matrizRows}
-              loading={matrizLoading}
-              filtrosMateriais={filtros.materiais}
-              filtrosBlocos={filtros.blocos}
-              setFiltros={handleSetFiltrosDebounced}
-            />
-          </div>
+          <MatrizMateriais
+            rows={matrizRows}
+            loading={matrizLoading}
+            filtrosMateriais={filtros.materiais}
+            filtrosBlocos={filtros.blocos}
+            setFiltros={handleSetFiltrosDebounced}
+            maxHeight={280}
+          />
         </Card>
       </ErrorBoundary>
 
@@ -1538,55 +1616,19 @@ export function SimuladorPage() {
               Total Realizado (Vendas Realizadas)
             </h2>
           </div>
-          <div className="max-h-[240px] overflow-y-auto">
-            <VendasTable
-              rows={vendasRows}
-              loading={vendasLoading}
-            />
-          </div>
-        </Card>
-      </ErrorBoundary>
-
-      {/* SIMULADOR DE PEDIDOS */}
-      <ErrorBoundary>
-        <Card noPadding>
-          <div className="px-4 py-2.5 border-b border-surface-border flex items-center gap-2">
-            <ShoppingCart size={12} className="text-[color:var(--color-chart-orange,#f97316)]" />
-            <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-widest">
-              Simulador de Pedidos
-            </h2>
-          </div>
-          <div className="max-h-[320px] overflow-y-auto overflow-x-auto">
-            <SimuladorPedidos
-              rows={chapasRows}
-              loading={chapasLoading}
-              pedidoSet={pedidoSet}
-              onAddChapa={addToPedido}
-            />
-          </div>
-        </Card>
-      </ErrorBoundary>
-
-      {/* PEDIDO */}
-      {pedido.size > 0 && (
-        <ErrorBoundary>
-          <PedidoTable
-            pedido={pedido}
-            dfixa={r?.maxDfixa ?? 0}
-            dvariavel={r?.maxDvariavel ?? 0}
-            varLucro={varLucro}
-            onRemove={removeFromPedido}
-            onUpdateQtde={updatePedidoQtde}
-            onUpdateDesconto={updatePedidoDesconto}
+          <VendasTable
+            rows={vendasRows}
+            loading={vendasLoading}
+            maxHeight={240}
           />
-        </ErrorBoundary>
-      )}
+        </Card>
+      </ErrorBoundary>
 
       {/* BLOCOS 3-6 */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
         {/* BLOCO 3 */}
-        
+
         <ErrorBoundary>
           <Card>
             <div className="flex items-center gap-2 mb-3">
@@ -1622,40 +1664,7 @@ export function SimuladorPage() {
           </Card>
         </ErrorBoundary>
 
-        {/* BLOCO 4 */}
-        <ErrorBoundary>
-          <Card>
-            <div className="flex items-center gap-2 mb-3">
-              <Target size={12} className="text-brand" />
-              <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-widest">
-                Indicadores (Cadastro da Empresa)
-              </h2>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <InfoCard
-                title="Lucro"
-                value={r ? fmtPct(r.maxLucro) : '—'}
-                icon={TrendingUp}
-                accent="text-chart-teal"
-                loading={resumoLoading}
-              />
-              <InfoCard
-                title="D. Variável"
-                value={r ? fmtPct(r.maxDvariavel) : '—'}
-                icon={Percent}
-                accent="text-chart-blue"
-                loading={resumoLoading}
-              />
-              <InfoCard
-                title="D. Fixa"
-                value={r ? fmtPct(r.maxDfixa) : '—'}
-                icon={Percent}
-                accent="text-chart-orange"
-                loading={resumoLoading}
-              />
-            </div>
-          </Card>
-        </ErrorBoundary>
+
 
         {/* BLOCO 5 */}
         <ErrorBoundary>
@@ -1667,13 +1676,7 @@ export function SimuladorPage() {
               </h2>
             </div>
             <div className="grid grid-cols-3 gap-2 items-stretch">
-              <InfoCard
-                title="Lucro (Variável)"
-                value={calcs === null ? '—' : fmtBRL(calcs.lucroVariavel)}
-                icon={TrendingUp}
-                accent={calcs && calcs.lucroVariavel >= 0 ? 'text-status-success' : 'text-status-danger'}
-                loading={resumoLoading}
-              />
+
               <InfoCard
                 title="Preço de Venda (Variável)"
                 value={
@@ -1688,11 +1691,28 @@ export function SimuladorPage() {
                 loading={resumoLoading}
                 highlight={calcs?.precoVendaVar !== 'S/ESTOQUE'}
               />
-              <LucroSlider
-                value={varLucro}
-                onChange={setVarLucro}
-                disabled={resumoLoading}
+              <InfoCard
+                title="Faturamento Potencial (Variável)"
+                value={faturamentoVariavel === null
+                  ? 'S/ESTOQUE'
+                  : fmtBRL(faturamentoVariavel)
+                }
+                icon={TrendingUp}
+                accent={faturamentoVariavel !== null && faturamentoVariavel > 0
+                  ? 'text-status-success'
+                  : 'text-text-muted'
+                }
+                loading={resumoLoading || matrizLoading}
+                highlight={faturamentoVariavel !== null && faturamentoVariavel > 0}
               />
+                <InfoCard
+                title="Lucro (Variável)"
+                value={calcs === null ? '—' : fmtBRL(calcs.lucroVariavel)}
+                icon={TrendingUp}
+                accent={calcs && calcs.lucroVariavel >= 0 ? 'text-status-success' : 'text-status-danger'}
+                loading={resumoLoading}
+              />
+
             </div>
           </Card>
         </ErrorBoundary>
@@ -1753,7 +1773,135 @@ export function SimuladorPage() {
             </div>
           </Card>
         </ErrorBoundary>
+        {/* BLOCO 4 */}
+        <ErrorBoundary>
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <Target size={12} className="text-brand" />
+              <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-widest">
+                Indicadores (Cadastro da Empresa)
+              </h2>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <LucroSlider
+                value={varLucro}
+                onChange={setVarLucro}
+                disabled={resumoLoading}
+              />
+              <LucroSlider
+                label="% D. VARIÁVEL"
+                value={dVariavel}
+                onChange={setDVariavel}
+                disabled={resumoLoading}
+              />
+              <LucroSlider
+                label="% D. FIXA"
+                value={dFixa}
+                onChange={setDFixa}
+                disabled={resumoLoading}
+              />
+            </div>
+          </Card>
+        </ErrorBoundary>
 
+      </div>
+
+      <div className="w-full h-px bg-[var(--line)] my-1" />
+
+     
+
+
+
+      {/* SIMULADOR DE PEDIDOS */}
+      <ErrorBoundary>
+        <Card noPadding>
+          <div className="px-4 py-2.5 border-b border-surface-border flex items-center gap-2">
+            <ShoppingCart size={12} className="text-[color:var(--color-chart-orange,#f97316)]" />
+            <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-widest">
+              Simulador de Pedidos
+            </h2>
+          </div>
+          <SimuladorPedidos
+            rows={chapasRows}
+            loading={chapasLoading}
+            pedidoSet={pedidoSet}
+            onAddChapa={addToPedido}
+            maxHeight={320}
+          />
+        </Card>
+      </ErrorBoundary>
+
+      {/* PEDIDO */}
+      {pedido.size > 0 && (
+        <ErrorBoundary>
+          <PedidoTable
+            pedido={pedido}
+            dfixa={pedidoDFixa}
+            dvariavel={pedidoDVariavel}
+            varLucro={pedidoLucro}
+            onRemove={removeFromPedido}
+            onUpdateQtde={updatePedidoQtde}
+            onUpdateDesconto={updatePedidoDesconto}
+            maxHeight={240}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* PARÂMETROS DO SIMULADOR DE PEDIDOS */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        {/*PARÂMETROS - BLOCO 1*/}
+        <ErrorBoundary>
+        <Card>
+          <div className="flex items-center gap-2 mb-3">
+            <Settings size={12} className="text-brand" />
+            <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-widest">
+              Parâmetros do Simulador de Pedidos
+            </h2>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <LucroSlider label="% DE LUCRO"    value={pedidoLucro}     onChange={setPedidoLucro} />
+            <LucroSlider label="% D. VARIÁVEL" value={pedidoDVariavel} onChange={setPedidoDVariavel} />
+            <LucroSlider label="% D. FIXA"     value={pedidoDFixa}     onChange={setPedidoDFixa} />
+          </div>
+        </Card>
+         </ErrorBoundary>
+
+        <ErrorBoundary>
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <Calculator size={12} className="text-brand" />
+              <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-widest">
+                Simulador de Valores
+              </h2>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <InfoCard
+                title="Valor Total - Pedido"
+                value={pedidoCalcs === null ? '—' : fmtBRL(pedidoCalcs.totalValor)}
+                icon={DollarSign}
+                accent="text-brand"
+                loading={resumoLoading}
+                highlight
+              />
+              <InfoCard
+                title="Custo Total do Pedido"
+                value={pedidoCalcs === null ? '—' : fmtBRL(pedidoCalcs.totalCusto)}
+                icon={BarChart2}
+                accent="text-chart-teal"
+                loading={resumoLoading}
+              />
+              <InfoCard
+                title="Lucro"
+                value={pedidoCalcs === null ? '—' : fmtBRL(pedidoCalcs.totalLucro)}
+                icon={TrendingUp}
+                accent={pedidoCalcs && pedidoCalcs.pdrLucro >= 0 ? 'text-status-success' : 'text-status-danger'}
+                loading={resumoLoading}
+              />
+            </div>
+          </Card>
+        </ErrorBoundary>
+
+        
       </div>
 
       {/* Drawer mobile */}

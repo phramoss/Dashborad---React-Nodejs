@@ -16,7 +16,7 @@ import { SlidersHorizontal, RefreshCw, Filter, ChevronRight } from 'lucide-react
 import { FiltroAnosSelect } from './FiltroAnosSelect'
 import { FiltroMesesSelect } from './FiltroMesesSelect'
 import { MultiSelect } from '@/components/ui/MultiSelect'
-import { useActiveCount, useResetFiltros, useFiltrosStore } from '@/store/filtros.store'
+import { useActiveCount, useResetFiltros, useFiltrosStore, useFiltros } from '@/store/filtros.store'
 import { useFiltrosDisponiveis } from '@/hooks/useFiltrosDisponiveis'
 import { cn } from '@/lib/utils'
 import type { FiltroDashboard, FiltrosDisponiveis } from '@/types'
@@ -115,7 +115,7 @@ const MobileDrawer = memo(function MobileDrawer({
         className={cn(
           'sm:hidden fixed top-0 right-0 h-full z-50',
           'w-[85vw] max-w-[340px]',
-          'bg-[#191B1D] border-l border-[rgba(66,141,148,0.20)] shadow-2xl',
+          'bg-[var(--filter-bg)] border-l border-[var(--border)] shadow-2xl',
           // O drawer inteiro scrolla — sem flex-col
           'overflow-y-auto overscroll-contain',
           'transition-transform duration-300 ease-out',
@@ -123,19 +123,19 @@ const MobileDrawer = memo(function MobileDrawer({
         )}
       >
         {/* Header — sticky no topo durante scroll */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3.5 bg-[#191B1D] border-b border-[rgba(66,141,148,0.20)]">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3.5 bg-[var(--filter-bg)] border-b border-[var(--border)]">
           <div className="flex items-center gap-2 text-text-secondary">
             <SlidersHorizontal size={14} />
             <span className="text-[12px] uppercase tracking-widest font-semibold">Filtros</span>
             {activeCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-[#428D94]/20 text-[#428D94] text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded-full bg-brand/20 text-[#428D94] text-[10px] font-bold">
                 {activeCount}
               </span>
             )}
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-[#2D2F33] transition-all"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-[var(--surface)] transition-all"
             aria-label="Fechar filtros"
           >
             <ChevronRight size={18} />
@@ -155,7 +155,7 @@ const MobileDrawer = memo(function MobileDrawer({
           <FiltroMesesSelect />
 
           {/* Separador */}
-          <div className="w-full h-px bg-[rgba(66,141,148,0.20)] my-1" />
+          <div className="w-full h-px bg-[var(--border)] my-1" />
 
           <p className="text-[10px] text-text-muted uppercase tracking-widest">Dimensões</p>
 
@@ -172,7 +172,7 @@ const MobileDrawer = memo(function MobileDrawer({
         </div>
 
         {/* Footer — sticky no rodapé durante scroll */}
-        <div className="sticky bottom-0 z-10 px-4 py-4 bg-[#191B1D] border-t border-[rgba(66,141,148,0.20)] flex flex-col gap-2">
+        <div className="sticky bottom-0 z-10 px-4 py-4 bg-[var(--filter-bg)] border-t border-[var(--border)] flex flex-col gap-2">
           {activeCount > 0 && (
             <button
               onClick={() => { onReset(); onClose() }}
@@ -192,8 +192,8 @@ const MobileDrawer = memo(function MobileDrawer({
             className={cn(
               'w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg',
               'text-[12px] font-medium text-text-secondary',
-              'bg-[#2D2F33] border border-[rgba(66,141,148,0.20)]',
-              'hover:bg-[#3A3D42] active:scale-[0.98] transition-all',
+              'bg-[var(--surface)] border border-[var(--border)]',
+              'hover:hover:bg-[var(--surface-light)] active:scale-[0.98] transition-all',
             )}
           >
             Aplicar e fechar
@@ -205,12 +205,20 @@ const MobileDrawer = memo(function MobileDrawer({
 })
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export const FiltroBar = memo(function FiltroBar() {
+interface FiltroBarProps {
+  vertical?: boolean
+}
+
+export const FiltroBar = memo(function FiltroBar({ vertical }: FiltroBarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const activeCount  = useActiveCount()
   const resetFiltros = useResetFiltros()
-  const { filtros, setClientes, setVendedores, setMateriais, setGrupos } = useFiltrosStore()
+  const filtros      = useFiltros()
+  const setClientes  = useFiltrosStore((s) => s.setClientes)
+  const setVendedores = useFiltrosStore((s) => s.setVendedores)
+  const setMateriais = useFiltrosStore((s) => s.setMateriais)
+  const setGrupos    = useFiltrosStore((s) => s.setGrupos)
   const { data: opts, isLoading } = useFiltrosDisponiveis()
 
   const handleClose = useCallback(() => setDrawerOpen(false), [])
@@ -218,6 +226,35 @@ export const FiltroBar = memo(function FiltroBar() {
 
   const sharedProps: DropdownsProps = {
     opts, filtros, setClientes, setVendedores, setMateriais, setGrupos, isLoading,
+  }
+
+  // ── Vertical mode (sidebar) ───────────────────────────────────────────────
+  if (vertical) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-[9px] text-white/40 uppercase tracking-widest">Período</p>
+        <FiltroAnosSelect />
+        <FiltroMesesSelect />
+        <div className="w-full h-px bg-white/10 my-0.5" />
+        <p className="text-[9px] text-white/40 uppercase tracking-widest">Dimensões</p>
+        <FilterDropdowns {...sharedProps} />
+        {activeCount > 0 && (
+          <button
+            onClick={resetFiltros}
+            className={cn(
+              'w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium mt-1',
+              'text-red-300/80 hover:text-red-300',
+              'bg-red-500/10 hover:bg-red-500/15',
+              'border border-red-500/20 hover:border-red-500/30',
+              'transition-all duration-150',
+            )}
+          >
+            <RefreshCw size={10} />
+            Limpar {activeCount} filtro{activeCount > 1 ? 's' : ''}
+          </button>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -231,12 +268,12 @@ export const FiltroBar = memo(function FiltroBar() {
           <span className="text-[11.5px] uppercase tracking-widest font-medium">Filtros</span>
         </div>
 
-        <div className="w-px h-5 bg-[rgba(66,141,148,0.20)]" />
+        <div className="w-px h-5 bg-[var(--border)]" />
 
         <FiltroAnosSelect />
         <FiltroMesesSelect />
 
-        <div className="w-px h-5 bg-[rgba(66,141,148,0.20)]" />
+        <div className="w-px h-5 bg-[var(--border)]" />
 
         <FilterDropdowns {...sharedProps} />
 
@@ -277,7 +314,7 @@ export const FiltroBar = memo(function FiltroBar() {
           'transition-all duration-200 active:scale-95',
           activeCount > 0
             ? 'bg-brand shadow-brand/30 text-surface-dark'
-            : 'bg-[#191B1D] border border-[rgba(66,141,148,0.20)] text-text-muted hover:border-[#428D94]/40 hover:text-[#428D94]',
+            : 'bg-[var(--filter-bg)] border border-[var(--border)] text-text-muted hover:border-brand/40 hover:text-brand',
         )}
         aria-label="Abrir filtros"
       >

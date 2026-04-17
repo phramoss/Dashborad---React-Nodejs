@@ -1,6 +1,5 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState, type ElementType } from 'react'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn, formatCurrency, formatNumber, formatPercent } from '@/lib/utils'
 
@@ -17,11 +16,9 @@ interface KpiCardProps {
   loading?: boolean
   accent?: string
   animationDelay?: number
+  icon?: ElementType
 }
 
-// ─── Animated counter hook ────────────────────────────────────
-// Anima do VALOR ANTERIOR para o novo valor (não do zero),
-// evitando o reset jarring a cada troca de filtro.
 function useCountUp(target: number, duration = 700, delay = 0) {
   const [current, setCurrent] = useState(target)
   const frameRef  = useRef<number>(0)
@@ -29,7 +26,6 @@ function useCountUp(target: number, duration = 700, delay = 0) {
   const firstRun  = useRef(true)
 
   useEffect(() => {
-    // Na primeira montagem, exibe direto sem animação
     if (firstRun.current) {
       firstRun.current = false
       fromRef.current  = target
@@ -38,7 +34,6 @@ function useCountUp(target: number, duration = 700, delay = 0) {
     }
 
     const from = fromRef.current
-    // Sem mudança — não anima
     if (from === target) return
 
     let start: number | null = null
@@ -86,12 +81,11 @@ function VariationBadge({ value }: { value: number }) {
 
   return (
     <span className={cn(
-      // shrink-0 garante que a badge nao vai ser comprimida pelo valor
       'inline-flex items-center gap-0.5 font-semibold px-1 py-0.5 rounded-md border whitespace-nowrap shrink-0',
       'text-[9px] sm:text-[10px]',
-      isZero && 'text-text-secondary bg-surface-light border-surface-border',
-      isPos  && 'text-status-success bg-status-success/10 border-status-success/20',
-      !isPos && !isZero && 'text-status-danger bg-status-danger/10 border-status-danger/20',
+      isZero && 'text-white/60 bg-white/10 border-white/20',
+      isPos  && 'text-green-300 bg-green-400/15 border-green-400/25',
+      !isPos && !isZero && 'text-red-300 bg-red-400/15 border-red-400/25',
     )}>
       <Icon size={8} strokeWidth={2.5} />
       {formatPercent(Math.abs(value))}
@@ -110,38 +104,40 @@ export const KpiCard = memo(function KpiCard({
   loading,
   accent = 'text-brand',
   animationDelay = 0,
+  icon: Icon,
 }: KpiCardProps) {
   const animated = useCountUp(value, 900, animationDelay)
 
   if (loading) {
     return (
-      <div className="rounded-xl bg-surface border border-surface-border p-4 card-glow">
-        <Skeleton className="h-2.5 w-20 mb-3" />
-        <Skeleton className="h-7 w-28 mb-2" />
-        <Skeleton className="h-2.5 w-14" />
+      <div className="rounded-xl p-4 card-glow" style={{ background: 'var(--surface-kpi)' }}>
+        <Skeleton className="h-2.5 w-20 mb-3 bg-white/20" />
+        <Skeleton className="h-7 w-28 mb-2 bg-white/25" />
+        <Skeleton className="h-2.5 w-14 bg-white/20" />
       </div>
     )
   }
 
   return (
-    <Card className="flex flex-col gap-1 group hover:border-brand/20 transition-colors overflow-hidden">
-      {/* Titulo */}
-      <p className="text-[9px] sm:text-[11px] font-medium text-text-muted uppercase tracking-widest leading-tight truncate">
+    <div
+      className="rounded-xl p-6 relative overflow-hidden transition-all duration-150 hover:brightness-110 card-glow"
+      style={{ background: 'var(--surface-kpi)' }}
+    >
+      {Icon && (
+        <div className="absolute top-3 right-3 w-12 h-12 rounded-lg bg-white/15 flex items-center justify-center">
+          <Icon size={24} className="text-white/80" strokeWidth={1.5} />
+        </div>
+      )}
+
+      <p className="text-[14px] font-semibold text-white/70 uppercase tracking-widest leading-tight pr-6">
         {title}
       </p>
 
-      {/*
-        Valor + badge de variacao.
-        - overflow-hidden no container: impede que qualquer filho vaze o card.
-        - flex-1 + truncate no valor: o numero se comprime antes de vazar.
-        - shrink-0 + self-start na badge: a porcentagem nunca e comprimida e
-          fica alinhada ao topo (evita desalinhamento com texto grande).
-      */}
-      <div className="flex items-center gap-1.5 mt-1 min-w-0 overflow-hidden">
+      <div className="flex items-end gap-1.5 mt-6 min-w-0 overflow-hidden">
         <span
           className={cn(
             'font-display font-bold leading-tight tabular-nums',
-            'text-lg sm:text-2xl lg:text-3xl',
+            'text-2xl sm:text-4xl',
             'truncate min-w-0 flex-1',
             accent,
           )}
@@ -150,24 +146,24 @@ export const KpiCard = memo(function KpiCard({
         </span>
 
         {variation !== undefined && (
-          <span className="shrink-0 self-start mt-0.5">
+          <span className="shrink-0 mb-0.5">
             <VariationBadge value={variation} />
           </span>
         )}
       </div>
 
       {subtitle && (
-        <p className="text-[9px] sm:text-[12px] text-text-muted leading-none truncate">{subtitle}</p>
+        <p className="text-[14px] text-white/50 leading-none truncate mt-4">{subtitle}</p>
       )}
 
       {secondaryValue !== undefined && (
-        <div className="flex items-center gap-1 mt-1 pt-1.5 border-t border-surface-border/40 min-w-0 overflow-hidden">
-          <span className="text-[10px] text-text-muted truncate">{secondaryLabel}</span>
-          <span className="text-[10px] font-mono font-medium text-text-secondary ml-auto shrink-0">
+        <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-white/10 min-w-0 overflow-hidden">
+          <span className="text-[14px] text-white/50 truncate">{secondaryLabel}</span>
+          <span className="text-[14px] font-mono font-medium text-white/70 ml-auto shrink-0">
             {formatValue(secondaryValue, format)}
           </span>
         </div>
       )}
-    </Card>
+    </div>
   )
 })

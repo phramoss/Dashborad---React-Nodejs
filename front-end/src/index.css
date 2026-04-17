@@ -3,14 +3,53 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --color-bg:       #030303;
-    --color-surface:  #2D2F33;
-    --color-filter:   #191B1D;
-    --color-brand:    #428D94;
-    --color-brand-80: rgba(66,141,148,0.80);
-    --color-border:   rgba(66,141,148,0.20);
-    --color-text:     #c9c9c9;
+  /* ── DARK (padrão) ─────────────────────────── */
+  :root,
+  [data-theme="dark"] {
+    --bg:             #030303;
+    --surface:        #2D2F33;
+    --surface-kpi:    #428D94;
+    --filter-bg:      #191B1D;
+    --brand:          #428D94;
+    --brand-alpha:    rgba(66,141,148,0.20);
+    --border:         rgba(66,141,148,0.20);
+    --border-mid:     rgba(66,141,148,0.40);
+    --text-primary:   #c9c9c9;
+    --text-muted:     #8892B0;
+    --text-card:      #ffffff;
+    --surface-light:  #3A3D42;
+    --topbar-bg:      #2D2F33;
+    --input-bg:       #1e2030;
+    --dropdown-bg:    #2D2F33;
+    --scrollbar:      rgba(66,141,148,0.20);
+    --chart-tooltip:  #1A1C1F;
+    --chart-axis:     rgba(66,141,148,0.20);
+    --chart-grid:     rgba(66,141,148,0.08);
+    --line:           #4e4e4e;
+  }
+
+  /* ── LIGHT ─────────────────────────────────── */
+  [data-theme="light"] {
+    --bg:             #353535;
+    --surface:        #ffffff;
+    --surface-kpi:    #2344AF;
+    --filter-bg:      #636363;
+    --brand:          #428D94;
+    --brand-alpha:    rgba(66,141,148,0.20);
+    --border:         #000000;
+    --border-mid:     rgba(0,0,0,0.50);
+    --text-primary:   #111111;
+    --text-muted:     #444444;
+    --text-card:      #ffffff;
+    --surface-light:  #505050;
+    --topbar-bg:      #424242;
+    --input-bg:       #505050;
+    --dropdown-bg:    #424242;
+    --scrollbar:      rgba(20, 3, 3, 0.3);
+    --chart-tooltip:  #2a2a2a;
+    --chart-axis:     rgba(0,0,0,0.15);
+    --chart-grid:     rgba(0,0,0,0.06);
+    --line:           #ffffff;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -22,118 +61,56 @@
   }
 
   body {
-    @apply text-text-primary font-sans antialiased;
-    background-color: #030303;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Roboto', system-ui, sans-serif;
     font-size: 18px;
     font-feature-settings: "tnum" on, "lnum" on;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
-  /* Custom scrollbar */
   ::-webkit-scrollbar        { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track  { background: transparent; }
-  ::-webkit-scrollbar-thumb  { @apply bg-surface-border rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-text-muted; }
+  ::-webkit-scrollbar-thumb  { background: var(--scrollbar); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--brand); }
 
-  /* Smooth transitions for all interactive elements */
-  button, a { @apply outline-none; }
-  /* Focus-visible: estilo mínimo apenas para acessibilidade via teclado */
-  button:focus-visible, a:focus-visible {
-    @apply outline-none;
-  }
+  button, a { outline: none; }
 }
-
-/* Tamanhos de texto — use estas classes nos componentes */
-/* KPI / números:       font-size: 29px  */
-/* Títulos de card:     font-size: 16px */
-/* Corpo / parágrafo:   font-size: 18px  */
-/* Labels / legendas:   font-size: 16px */
-/* Sidebar / menu:      font-size: 15px */
 
 @layer utilities {
-  /* Gradient text */
-  .text-gradient-brand {
-    background: linear-gradient(135deg, #00D4AA, #00FFCC);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  /* Card base shadow — subtle, no glow */
-  .card-glow {
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  }
-
-  /* ECharts cursor */
+  .card-glow { box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
   .chart-hover-cursor { cursor: pointer; }
-
-  /* Number tabular alignment */
   .tabular-nums { font-variant-numeric: tabular-nums; }
+  .animate-page-in { animation: fadeSlideUp 0.4s ease-out both; }
 }
 
-/* ECharts tooltip global override */
-.echarts-tooltip-container {
-  font-family: 'IBM Plex Sans', sans-serif !important;
-}
-
-/* ─── Leaflet popup dark theme ────────────────────────────── */
-.leaflet-popup-dark .leaflet-popup-content-wrapper {
-  background: #0E1120;
-  border: 1px solid #2D3554;
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  color: #c9c9c9;
-  padding: 0;
-}
-.leaflet-popup-dark .leaflet-popup-content {
-  margin: 0;
-}
-.leaflet-popup-dark .leaflet-popup-tip {
-  background: #0E1120;
-  border: 1px solid #2D3554;
-  border-top: none;
-  border-left: none;
-}
-.leaflet-popup-dark .leaflet-popup-close-button {
-  color: #8892B0 !important;
-  font-size: 18px;
-  top: 6px !important;
-  right: 8px !important;
-}
-.leaflet-popup-dark .leaflet-popup-close-button:hover {
-  color: #00D4AA !important;
-}
-
-/* Ajusta controles do Leaflet para tema dark */
-.leaflet-control-zoom a {
-  background: #1e2235 !important;
-  color: #c9c9c9 !important;
-  border-color: #2D3554 !important;
-}
-.leaflet-control-zoom a:hover {
-  background: #2D3554 !important;
-  color: #00D4AA !important;
-}
-.leaflet-control-attribution {
-  background: rgba(14, 17, 32, 0.7) !important;
-  color: #8892B0 !important;
-  font-size: 9px !important;
-}
-.leaflet-control-attribution a {
-  color: #00D4AA !important;
-}
-
-/* Page entry animation */
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.animate-page-in {
-  animation: fadeSlideUp 0.4s ease-out both;
-}
-
-/* Shimmer for loading bar */
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
 }
+
+/* ECharts tooltip */
+.echarts-tooltip-container {
+  font-family: 'Roboto', sans-serif !important;
+}
+
+/* Leaflet */
+.leaflet-popup-dark .leaflet-popup-content-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  padding: 0;
+}
+.leaflet-popup-dark .leaflet-popup-tip { background: var(--surface); }
+.leaflet-popup-dark .leaflet-popup-close-button { color: var(--text-muted) !important; }
+.leaflet-popup-dark .leaflet-popup-close-button:hover { color: var(--brand) !important; }
+.leaflet-control-zoom a { background: var(--surface) !important; color: var(--text-primary) !important; border-color: var(--border) !important; }
+.leaflet-control-zoom a:hover { background: var(--surface-light) !important; color: var(--brand) !important; }
+.leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: var(--text-muted) !important; font-size: 9px !important; }

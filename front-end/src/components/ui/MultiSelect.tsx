@@ -11,6 +11,7 @@ import {
   useRef,
   useEffect,
   useCallback,
+  useMemo,
   memo,
   type KeyboardEvent,
 } from 'react'
@@ -113,11 +114,12 @@ export const MultiSelect = memo(function MultiSelect({
     if (e.key === 'Escape') { setOpen(false); setSearch('') }
   }, [])
 
-  const filtered = options.filter(o =>
-    o.label.toLowerCase().includes(search.toLowerCase()),
+  const filtered = useMemo(
+    () => options.filter(o => o.label.toLowerCase().includes(search.toLowerCase())),
+    [options, search],
   )
 
-  const triggerLabel = () => {
+  const triggerLabel = useMemo(() => {
     if (selected.length === 0) return placeholder
     if (selected.length <= maxDisplay) {
       return selected
@@ -126,7 +128,7 @@ export const MultiSelect = memo(function MultiSelect({
         .join(', ')
     }
     return `${selected.length} selecionados`
-  }
+  }, [selected, options, placeholder, maxDisplay])
 
   const hasSelection = selected.length > 0
 
@@ -150,7 +152,7 @@ export const MultiSelect = memo(function MultiSelect({
           {label}
         </span>
         <span className={cn('flex-1 text-left truncate text-[13.5px]', hasSelection && 'text-brand font-medium')}>
-          {loading ? '...' : triggerLabel()}
+          {loading ? '...' : triggerLabel}
         </span>
         {hasSelection ? (
           <X size={11} className="text-text-muted hover:text-status-danger shrink-0" onClick={clear} />

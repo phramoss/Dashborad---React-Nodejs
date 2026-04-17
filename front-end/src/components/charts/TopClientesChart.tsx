@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
-import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
+import { Users } from 'lucide-react'
+import { ChartContainer, CHART_COLORS, CHART_THEME, chartGradientColor, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoCliente } from '@/hooks/useDashboardData'
 import { useFiltrosStore, useFilteredClientes } from '@/store/filtros.store'
 import { formatCurrency, truncate } from '@/lib/utils'
@@ -53,40 +54,47 @@ export const TopClientesChart = memo(function TopClientesChart() {
         inverse: true,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#c9c9c9', fontSize: 12, fontFamily: 'Roboto', width: 150, overflow: 'truncate' as const },
+        axisLabel: { color: CHART_THEME.textColor, fontSize: 12, fontFamily: 'Roboto', width: 150, overflow: 'truncate' as const },
       },
       series: [{
         type: 'bar',
         barMaxWidth: 14,
-        data: items.map((d) => {
+        data: items.map((d, i) => {
           const isActive = activeIds.length === 0 || activeIds.includes(d.clienteId)
+          const barColor = chartGradientColor(items.length - 1 - i, items.length)
+          const dimmed   = barColor.replace('rgb(', 'rgba(').replace(')', ', 0.18)')
           return {
             value: d.faturamento,
             itemStyle: {
               borderRadius: [0, 3, 3, 0],
-              color: isActive ? CHART_COLORS.teal : `${CHART_COLORS.teal}28`,
+              color: isActive ? {
+                type: 'linear' as const, x: 0, y: 0, x2: 1, y2: 0,
+                colorStops: [
+                  { offset: 0, color: barColor.replace('rgb(', 'rgba(').replace(')', ', 0.65)') },
+                  { offset: 1, color: barColor },
+                ],
+              } : dimmed,
             },
             emphasis: { disabled: true },
           }
         }),
         label: {
           show: true, position: 'right' as const,
-          color: '#c9c9c9', fontSize: 13, fontFamily: 'Roboto',
+          color: CHART_THEME.textColor, fontSize: 13, fontFamily: 'Roboto',
           formatter: (p: { value: number }) => formatCurrency(p.value, true),
         },
       }],
     }
   }, [items, activeClientes, total])
 
-  // Altura total real do gráfico: 28px por barra
   const BAR_HEIGHT = 28
   const chartInnerHeight = Math.max(items.length * BAR_HEIGHT + 8, 200)
-  // Container visível limitado a 420px; o gráfico cresce e o div faz scroll
   const visibleHeight = 280
 
   return (
     <ChartContainer
       title="Faturamento por Clientes"
+      titleIcon={Users}
       option={option}
       loading={isLoading}
       error={isError}

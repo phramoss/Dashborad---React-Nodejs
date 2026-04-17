@@ -2,11 +2,8 @@ import { forwardRef, type HTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  /** Adds a subtle teal glow on hover */
   interactive?: boolean
-  /** Highlight border (active filter state) */
   active?: boolean
-  /** Remove all padding */
   noPadding?: boolean
 }
 
@@ -15,9 +12,9 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     <div
       ref={ref}
       className={cn(
-        'rounded-xl bg-[#2D2F33] border border-[rgba(66,141,148,0.20)] shadow-card',
+        'rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-card transition-colors duration-200',
         !noPadding && 'p-4',
-        interactive && 'transition-colors duration-150 hover:border-[rgba(66,141,148,0.40)] cursor-pointer',
+        interactive && 'transition-colors duration-150 hover:border-[var(--border-mid)] cursor-pointer',
         className,
       )}
       {...props}

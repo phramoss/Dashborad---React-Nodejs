@@ -1,13 +1,3 @@
-/**
- * VendedoresTable.tsx — versão otimizada
- *
- * Correções:
- * 1. BUG CRÍTICO: VendedoresListDesktop estava sem `const` → ReferenceError
- * 2. PERFORMANCE: useVendedoresData() chamado 2x → 2 subscriptions ao store.
- *    Agora dados são buscados UMA VEZ em VendedoresContent e passados via props.
- * 3. PERFORMANCE: handlers inline por item substituídos por handlers estáveis
- *    que recebem o id como argumento.
- */
 
 import { memo, useCallback, useMemo, lazy, Suspense } from 'react'
 import { Card } from '@/components/ui/Card'
@@ -25,7 +15,6 @@ const MapaFaturamento = lazy(() =>
 const CARD_HEIGHT_PX = 52
 const MOBILE_VISIBLE = 5
 
-// ─── Props dos sub-componentes de lista ──────────────────────────────────────
 interface VendedoresListProps {
   sortedData: FaturamentoVendedor[]
   total: number
@@ -38,7 +27,6 @@ interface VendedoresListProps {
   isLoading: boolean
 }
 
-// ─── Card individual de vendedor ────────────────────────────────────────────
 interface VendedorCardProps {
   v: FaturamentoVendedor
   rank: number
@@ -75,7 +63,7 @@ const VendedorCard = memo(function VendedorCard({
         rank === 1 ? 'bg-chart-yellow/20 text-chart-yellow' :
         rank === 2 ? 'bg-text-muted/20 text-text-muted' :
         rank === 3 ? 'bg-chart-orange/20 text-chart-orange' :
-        'bg-surface-light text-text-muted',
+        'bg-surface-light text-text-card',
       )}>
         {rank}
       </div>
@@ -88,30 +76,30 @@ const VendedorCard = memo(function VendedorCard({
           )}>
             {v.vendedorNome}
           </span>
-          <span className="shrink-0" style={{ fontSize: '12px', fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: '#8892B0' }}>
+          <span className="shrink-0" style={{ fontSize: '12px', fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: 'var(--text-card)' }}>
             {formatCurrency(v.faturamento, true)}
           </span>
         </div>
-        <div className="h-[3px] bg-surface-light rounded-full overflow-hidden">
+        <div className="h-[3px] bg-text-card rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
               width: `${pct}%`,
-              background: isDimmed ? '#2D3554' : 'linear-gradient(90deg, #00D4AA, #00FFCC)',
-              boxShadow: isHovered ? '0 0 6px #00D4AA80' : 'none',
+              background: isDimmed ? 'var(--border)' : 'linear-gradient(90deg, #428D94, #5AB5BC)',
+              boxShadow: isHovered ? '0 0 6px rgba(66,141,148,0.5)' : 'none',
             }}
           />
         </div>
       </div>
 
-      <span className="w-9 text-right shrink-0" style={{ fontSize: '12px', fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: '#8892B0' }}>
+      <span className="w-9 text-right shrink-0" style={{ fontSize: '12px', fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: 'var(--text-card)' }}>
         {pct.toFixed(1)}%
       </span>
     </button>
   )
 })
 
-// ─── Modo mobile ─────────────────────────────────────────────────────────────
+
 const VendedoresListMobile = memo(function VendedoresListMobile({
   sortedData, total, activeIds, hoverId, hoverDimension,
   onToggle, onEnter, onLeave, isLoading,
@@ -153,7 +141,7 @@ const VendedoresListMobile = memo(function VendedoresListMobile({
   )
 })
 
-// ─── Modo desktop ─────────────────────────────────────────────────────────────
+
 const VendedoresListDesktop = memo(function VendedoresListDesktop({
   sortedData, total, activeIds, hoverId, hoverDimension,
   onToggle, onEnter, onLeave, isLoading,

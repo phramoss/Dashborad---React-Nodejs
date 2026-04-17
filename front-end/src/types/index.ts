@@ -124,6 +124,7 @@ export interface EstoqueMatrizRow {
   quantidade:      number
   total:           number
   campoAdicional?: string
+  limite?:         number
 }
 
 export interface EstoqueMatrizResult {

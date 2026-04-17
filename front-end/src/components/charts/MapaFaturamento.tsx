@@ -13,20 +13,27 @@ function normalizeRadius(v: number, min: number, max: number): number {
 }
 
 function buildPopupHtml(p: MapaMunicipio): string {
+  const s = getComputedStyle(document.documentElement)
+  const bg      = s.getPropertyValue('--surface').trim() || '#2D2F33'
+  const textPri = s.getPropertyValue('--text-primary').trim() || '#c9c9c9'
+  const textMut = s.getPropertyValue('--text-muted').trim() || '#8892B0'
+  const brand   = s.getPropertyValue('--brand').trim() || '#428D94'
+  const border  = s.getPropertyValue('--border').trim() || 'rgba(66,141,148,0.20)'
+
   return `
     <div style="
       font-family:'Roboto',sans-serif;min-width:180px;
-      background:#0E1120;color:#c9c9c9;border-radius:10px;padding:12px 16px;
+      background:${bg};color:${textPri};border-radius:10px;padding:12px 16px;
     ">
-      <div style="font-size:13px;font-weight:700;color:#00D4AA;
-        padding-bottom:6px;border-bottom:1px solid #2D3554;margin-bottom:8px;">
+      <div style="font-size:13px;font-weight:700;color:${brand};
+        padding-bottom:6px;border-bottom:1px solid ${border};margin-bottom:8px;">
         ${p.municipio} — ${p.uf}
       </div>
-      <div style="font-size:11px;color:#8892B0;">Faturamento</div>
-      <div style="font-size:17px;font-weight:700;color:#00FFCC;margin-top:2px;">
+      <div style="font-size:11px;color:${textMut};">Faturamento</div>
+      <div style="font-size:17px;font-weight:700;color:${brand};margin-top:2px;">
         ${formatCurrency(p.faturamento, true)}
       </div>
-      <div style="font-size:11px;color:#8892B0;margin-top:6px;">
+      <div style="font-size:11px;color:${textMut};margin-top:6px;">
         ${p.numClientes} cliente${p.numClientes !== 1 ? 's' : ''}
       </div>
     </div>`
@@ -96,9 +103,9 @@ export const MapaFaturamento = memo(function MapaFaturamento() {
 
       const circle = L.circleMarker([p.lat, p.lng], {
         radius,
-        fillColor: '#00D4AA',
+        fillColor: '#428D94',
         fillOpacity: 0.6,
-        color: '#00FFCC',
+        color: '#5AB5BC',
         weight: 1.5,
         opacity: 0.8,
       })

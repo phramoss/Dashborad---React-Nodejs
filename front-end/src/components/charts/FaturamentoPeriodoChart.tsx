@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
-import { ChevronLeft, ChevronsDown, ChevronDown, RotateCcw } from 'lucide-react'
+import { ChevronLeft, ChevronsDown, ChevronDown, RotateCcw, TrendingUp } from 'lucide-react'
 import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
 import {
   useFaturamentoPeriodo,
@@ -93,22 +93,16 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
     drill.mode === 'expandAll' ? loadingTodos :
     loadingAnos
 
-  // Normaliza os dados para o formato padrão
   const rawItems =
     drill.mode === 'drill'     ? (dataMeses ?? []) :
     drill.mode === 'expandAll' ? (dataTodos  ?? []) :
     (dataAnos ?? [])
 
-  // Extrai apenas os campos do gráfico (expandAll tem campos extras)
   const items: { periodo: string; faturamento: number }[] = rawItems.map(d => ({
     periodo:     d.periodo,
     faturamento: d.faturamento,
   }))
 
-  // ─── FIX: Mapeia cada dataIndex para o número real do mês (1-12) ───
-  // No drill, usa mesNumero da resposta da API (corrige quando meses sem dados são omitidos).
-  // No expandAll, usa mesIdx + 1 do dataTodos.
-  // No modo anos (none), não é usado.
   const mesNumByIndex: number[] = useMemo(() => {
     if (drill.mode === 'drill') {
       return (dataMeses ?? []).map(d => d.mesNumero ?? 0)
@@ -119,7 +113,6 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
     return []
   }, [drill.mode, dataMeses, dataTodos])
 
-  // Anos dos itens expandAll para desenhar separadores
   const expandAllAnos: number[] = drill.mode === 'expandAll'
     ? (dataTodos ?? []).map(d => d.ano)
     : []
@@ -133,7 +126,6 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
     const activeAnos  = filtros.anos
     const activeMeses = filtros.meses
 
-    // Separadores entre anos no modo expandAll
     const anoBreaks = new Set<number>()
     if (drill.mode === 'expandAll' && expandAllAnos.length > 0) {
       let lastAno = expandAllAnos[0]
@@ -142,7 +134,6 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
       })
     }
 
-    // Labels do eixo X
     const xLabels = items.map((d, i) => {
       if (drill.mode !== 'expandAll') return d.periodo
       if (i === 0 || anoBreaks.has(i)) {
@@ -174,7 +165,7 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
             rows: [
               { label: 'Faturamento', value: formatCurrency(p.value, true), color: CHART_COLORS.teal, highlight: true },
               ...(item.variacao !== null
-                ? [{ label: 'Var. período', value: formatPercent(item.variacao), color: item.variacao >= 0 ? '#00D4AA' : '#E74C3C' }]
+                ? [{ label: 'Var. período', value: formatPercent(item.variacao), color: item.variacao >= 0 ? CHART_COLORS.teal : '#E74C3C' }]
                 : []),
             ],
           })
@@ -187,13 +178,13 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
         axisLine: { lineStyle: { color: '#5a5e5d' } },
         axisTick: { show: false },
         axisLabel: {
-          color: '#c9c9c9',
+          color: CHART_THEME.textColor,
           fontSize: drill.mode === 'expandAll' ? 10 : 12,
           fontFamily: 'Roboto',
           margin: 10,
           rotate: drill.mode === 'expandAll' ? 45 : 0,
           rich: {
-            bold: { color: '#00D4AA', fontSize: 10, fontWeight: 'bold', fontFamily: 'Roboto' },
+            bold: { color: CHART_THEME.textColor, fontSize: 10, fontWeight: 'bold', fontFamily: 'Roboto' },
           },
         },
         splitLine: {
@@ -209,7 +200,7 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
         max: maxVal * 1.18,
         splitLine: { lineStyle: { color: CHART_THEME.gridLineColor, type: 'dashed', opacity: 0.6 } },
         axisLabel: {
-          color: '#c9c9c9',
+          color: CHART_THEME.textColor,
           fontSize: 12,
           fontFamily: 'Roboto',
           formatter: (v: number) => {
@@ -254,10 +245,10 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
                   ? `${barColor}22`
                   : isSelected
                   ? { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
-                      colorStops: [{ offset: 0, color: '#00FFCC' }, { offset: 1, color: barColor }] }
+                      colorStops: [{ offset: 0, color: '#428D94' }, { offset: 1, color: barColor }] }
                   : isMax
                   ? { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
-                      colorStops: [{ offset: 0, color: '#00FFCC' }, { offset: 1, color: barColor }] }
+                      colorStops: [{ offset: 0, color: '#428D94' }, { offset: 1, color: barColor }] }
                   : { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
                       colorStops: [{ offset: 0, color: `${barColor}CC` }, { offset: 1, color: `${barColor}66` }] },
                 shadowBlur: 0,
@@ -269,7 +260,7 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
           label: {
             show: true,
             position: 'top' as const,
-            color: '#c9c9c9',
+            color: CHART_THEME.textColor,
             fontSize: drill.mode === 'expandAll' ? 9 : 12,
             fontFamily: 'Roboto',
             formatter: (p: { value: unknown }) => {
@@ -322,13 +313,14 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
   return (
     <ChartContainer
       title={title}
+      titleIcon={TrendingUp}
       subtitle={subtitle}
       option={option}
       loading={isLoading}
       error={isError}
       empty={!isLoading && items.length === 0}
       onRetry={() => refetch()}
-      height={drill.mode === 'expandAll' ? 300 : 260}
+      height={drill.mode === 'expandAll' ? 213 : 187}
       active={!drill.active && filtros.anos.length > 0}
       clickable
       animationDelay={0}

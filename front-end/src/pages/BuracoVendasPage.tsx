@@ -1,6 +1,7 @@
-import { memo, useMemo, useState, useCallback, useEffect, Fragment } from 'react'
+import { memo, useMemo, useState, useCallback, useEffect, useRef, Fragment, type ReactNode } from 'react'
 import {
   SlidersHorizontal, RefreshCw, Filter, ChevronRight, ChevronDown, ChevronUp,
+  Activity, BarChart2, ShoppingBag, Layers, Box,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -30,6 +31,27 @@ import type {
   EstoqueDrillNode,
   MatrizSort,
 } from '@/types'
+
+// ─── Carregamento progressivo ─────────────────────────────────
+const PAGE_SIZE_BV = 30
+function useLazyRows<T>(rows: T[]) {
+  const [page, setPage] = useState(1)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { setPage(1) }, [rows])
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setPage(p => p + 1) },
+      { threshold: 0.1 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+  const visible = rows.slice(0, page * PAGE_SIZE_BV)
+  const hasMore = visible.length < rows.length
+  return { visible, hasMore, sentinelRef }
+}
 
 // ─── Helpers de formatação ────────────────────────────────────
 const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -282,6 +304,7 @@ function BVInlineRows({
 // ─── BVHierarchyTable — Chapa e Bloco ────────────────────────
 interface BVHierarchyTableProps {
   title:    string
+  icon?:    ReactNode
   headers:  string[]
   fields:   string[]
   endpoint: 'chapa' | 'bloco'
@@ -292,7 +315,7 @@ interface BVHierarchyTableProps {
 }
 
 const BVHierarchyTable = memo(function BVHierarchyTable({
-  title, headers, fields, endpoint, data, loading, filtros, onFilter,
+  title, icon, headers, fields, endpoint, data, loading, filtros, onFilter,
 }: BVHierarchyTableProps) {
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
   const [sortCol, setSortCol] = useState<string | null>(null)
@@ -344,9 +367,10 @@ const BVHierarchyTable = memo(function BVHierarchyTable({
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-surface-border shrink-0">
-        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-          {title}
-        </p>
+        <div className="flex items-center gap-2">
+          {icon}
+          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">{title}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-[1fr_88px_52px] px-3 py-1.5 bg-surface-light border-b border-surface-border shrink-0">
@@ -608,7 +632,7 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
   const { periodos, items, pivot, totaisPeriodo } = useMemo(() => {
     if (!rows.length) return {
       periodos:      [] as string[],
-      items:         [] as { value: string; label: string; campoAdicional: string }[],
+      items:         [] as { value: string; label: string; campoAdicional: string; limite: number | undefined }[],
       pivot:         {} as Record<string, Record<string, number>>,
       totaisPeriodo: {} as Record<string, number>,
     }
@@ -617,17 +641,19 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
     rows.forEach(r => periodSet.add(`${r.ano}-${String(r.mes).padStart(2, '0')}`))
     const periodos = Array.from(periodSet).sort()
 
-    const itemMap  = new Map<string, string>()
-    const extraMap = new Map<string, string>()
+    const itemMap   = new Map<string, string>()
+    const extraMap  = new Map<string, string>()
+    const limiteMap = new Map<string, number | undefined>()
     rows.forEach(r => {
       const k = String(r.value)
       if (!itemMap.has(k)) {
         itemMap.set(k, r.label)
         extraMap.set(k, r.campoAdicional ?? '')
+        limiteMap.set(k, r.limite)
       }
     })
     const items = Array.from(itemMap.entries()).map(([value, label]) => ({
-      value, label, campoAdicional: extraMap.get(value) ?? '',
+      value, label, campoAdicional: extraMap.get(value) ?? '', limite: limiteMap.get(value),
     }))
 
     const pivot: Record<string, Record<string, number>> = {}
@@ -650,6 +676,7 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
 
   // Ordenação feita no backend — items já chegam ordenados conforme sortCol/sortDir
   const sortedItems = items
+  const { visible: visibleSeqItems, hasMore: hasMoreSeq, sentinelRef: seqSentinelRef } = useLazyRows(sortedItems)
 
   const SortIcon = ({ col }: { col: string }) => {
     const active = sortCol === col
@@ -671,9 +698,10 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
     return (
       <Card noPadding>
         <div className="px-3 py-2 border-b border-surface-border">
-          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-            Sequência de Vendas
-          </p>
+          <div className="flex items-center gap-2">
+            <Activity size={12} className="text-brand" />
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">Sequência de Vendas</p>
+          </div>
         </div>
         <div className="flex flex-col gap-1 p-3">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
@@ -685,9 +713,10 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-surface-border shrink-0">
-        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-          Sequência de Vendas
-        </p>
+        <div className="flex items-center gap-2">
+          <Activity size={12} className="text-brand" />
+          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">Sequência de Vendas</p>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -697,7 +726,7 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 440 }}>
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 293 }}>
           <table
             className="border-collapse text-[11px]"
             style={{ minWidth: COL_EXPAND + COL_DIM + periodos.length * COL_VAL + 20 }}
@@ -711,6 +740,12 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
                   onClick={() => handleSort('nome')}
                 >
                   Nome Cliente <SortIcon col="nome" />
+                </th>
+                <th
+                  className="text-right px-2 py-1.5 text-text-muted font-medium border-b border-r border-surface-border whitespace-nowrap"
+                  style={{ minWidth: 90 }}
+                >
+                  Limite
                 </th>
                 {periodos.map(p => (
                   <th
@@ -733,7 +768,7 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
             </thead>
 
             <tbody>
-              {sortedItems.map((item, idx) => {
+              {visibleSeqItems.map((item, idx) => {
                 const key        = buildRowKey([], 0, item.value)
                 const isExpanded = expandedKeys.has(key)
                 const isSelected = isBVSeqRowActive(level0Field, item.value, filtros)
@@ -782,6 +817,10 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
                           </span>
                         )}
                       </td>
+                      {/* Limite */}
+                      <td className="text-right px-2 py-1.5 border-b border-r border-surface-border whitespace-nowrap tabular-nums text-[11px]">
+                        {item.limite ? fmtCur(item.limite) : '—'}
+                      </td>
                       {/* Períodos */}
                       {periodos.map(p => {
                         const total = pivot[item.value]?.[p]
@@ -819,6 +858,7 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
                 )
               })}
 
+              {hasMoreSeq && <tr><td colSpan={999}><div ref={seqSentinelRef} className="h-1" /></td></tr>}
               {/* Linha de total geral */}
               <tr className="bg-surface-light border-t-2 border-surface-border font-semibold sticky bottom-0">
                 <td className="sticky z-[5] bg-surface-light" style={{ left: 0 }} />
@@ -1056,6 +1096,8 @@ const BVFatHierarchyMatriz = memo(function BVFatHierarchyMatriz({
     return `${MESES_ABREV[Number(mes) - 1] ?? mes} de ${ano}`
   }
 
+  const { visible: visibleFatItems, hasMore: hasMoreFat, sentinelRef: fatSentinelRef } = useLazyRows(items)
+
   const COL_DIM    = 156
   const COL_EXPAND = 24
   const COL_VAL    = 96
@@ -1066,9 +1108,10 @@ const BVFatHierarchyMatriz = memo(function BVFatHierarchyMatriz({
     return (
       <Card noPadding>
         <div className="px-3 py-2 border-b border-surface-border">
-          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-            Estoque por Faturamento
-          </p>
+          <div className="flex items-center gap-2">
+            <BarChart2 size={12} className="text-brand" />
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">Estoque por Faturamento</p>
+          </div>
         </div>
         <div className="flex flex-col gap-1 p-3">
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
@@ -1080,9 +1123,10 @@ const BVFatHierarchyMatriz = memo(function BVFatHierarchyMatriz({
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-surface-border shrink-0">
-        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-          Estoque por Faturamento
-        </p>
+        <div className="flex items-center gap-2">
+          <BarChart2 size={12} className="text-brand" />
+          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">Estoque por Faturamento</p>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -1090,7 +1134,7 @@ const BVFatHierarchyMatriz = memo(function BVFatHierarchyMatriz({
           <p className="text-[11px] text-text-muted">Sem dados de faturamento no período</p>
         </div>
       ) : (
-        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 400 }}>
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 293 }}>
           <table
             className="border-collapse text-[11px]"
             style={{ minWidth: COL_EXPAND + COL_DIM + periodos.length * COL_VAL * 2 + COL_VAL + 20 }}
@@ -1136,7 +1180,7 @@ const BVFatHierarchyMatriz = memo(function BVFatHierarchyMatriz({
             </thead>
 
             <tbody>
-              {items.map((item, idx) => {
+              {visibleFatItems.map((item, idx) => {
                 const key        = buildRowKey([], 0, item.value)
                 const isExpanded = expandedKeys.has(key)
                 const isSelected = isBVFatRowActive(level0Field, item.value, [], filtros)
@@ -1205,6 +1249,7 @@ const BVFatHierarchyMatriz = memo(function BVFatHierarchyMatriz({
                 )
               })}
 
+              {hasMoreFat && <tr><td colSpan={999}><div ref={fatSentinelRef} className="h-1" /></td></tr>}
               <tr className="bg-surface-light border-t-2 border-surface-border font-semibold sticky bottom-0">
                 <td className="sticky z-[5] bg-surface-light" style={{ left: 0 }} />
                 <td className="sticky z-[5] bg-surface-light px-3 py-1.5 text-text-secondary border-r border-surface-border" style={{ left: COL_EXPAND }}>Total</td>
@@ -1292,9 +1337,10 @@ const MateriaisCompradosTable = memo(function MateriaisCompradosTable({
   return (
     <Card noPadding className="flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-surface-border shrink-0">
-        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">
-          Materiais Comprados
-        </p>
+        <div className="flex items-center gap-2">
+          <ShoppingBag size={12} className="text-brand" />
+          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">Materiais Comprados</p>
+        </div>
       </div>
 
       {/* Cabeçalho */}
@@ -1738,6 +1784,7 @@ export function BuracoVendasPage() {
         <ErrorBoundary>
           <BVHierarchyTable
             title="Chapa / Recortado"
+            icon={<Layers size={12} className="text-brand" />}
             headers={CHAPA_HEADERS}
             fields={CHAPA_FIELDS}
             endpoint="chapa"
@@ -1750,6 +1797,7 @@ export function BuracoVendasPage() {
         <ErrorBoundary>
           <BVHierarchyTable
             title="Bloco"
+            icon={<Box size={12} className="text-brand" />}
             headers={BLOCO_HEADERS}
             fields={BLOCO_FIELDS}
             endpoint="bloco"

@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react'
+import { UserCheck } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -46,7 +47,7 @@ function VendedorCard({
           </span>
           <span
             className="shrink-0 tabular-nums text-[11px]"
-            style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: '#8892B0' }}
+            style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: 'var(--text-primary)' }}
           >
             {formatCurrency(v.faturamento, true)}
           </span>
@@ -58,7 +59,7 @@ function VendedorCard({
             className="h-full rounded-full transition-all duration-700"
             style={{
               width: `${pct}%`,
-              background: isDimmed ? '#2D3554' : 'linear-gradient(90deg, #00D4AA, #00FFCC)',
+              background: isDimmed ? 'var(--border)' : 'linear-gradient(90deg, #428D94, #5AB5BC)',
               boxShadow: 'none',
             }}
           />
@@ -68,7 +69,7 @@ function VendedorCard({
       {/* Percentual */}
       <span
         className="shrink-0 tabular-nums text-right"
-        style={{ fontSize: '11px', minWidth: '38px', fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: '#8892B0' }}
+        style={{ fontSize: '11px', minWidth: '38px', fontFamily: 'Roboto, sans-serif', fontWeight: 600, color: 'var(--text-primary)' }}
       >
         {pct.toFixed(1)}%
       </span>
@@ -105,7 +106,7 @@ const VendedoresList = memo(function VendedoresList() {
 
     <div
       className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 auto-rows-min content-start overflow-y-auto pr-0.5"
-      style={{ maxHeight: 360 }}
+      style={{ maxHeight: 280 }}
     >
       {sortedData.map((v, idx) => {
         const rank     = idx + 1
@@ -132,12 +133,12 @@ export const VendedoresChart = memo(function VendedoresChart() {
   return (
     <Card className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-3 shrink-0">
-        <p
-          className="text-[10px] font-semibold text-text-secondary uppercase tracking-widest"
-          style={{ fontFamily: 'Roboto, sans-serif' }}
-        >
-          Faturamento por Vendedor
-        </p>
+        <div className="flex items-center gap-1.5">
+          <UserCheck size={13} className="text-brand flex-shrink-0" />
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ fontFamily: 'Roboto, sans-serif', color: 'var(--text-primary)' }}>
+            Faturamento por Vendedor
+          </p>
+        </div>
         {activeVendedoresOuter.length > 0 && (
           <button
             onClick={() => useFiltrosStore.getState().resetFiltro('vendedores')}

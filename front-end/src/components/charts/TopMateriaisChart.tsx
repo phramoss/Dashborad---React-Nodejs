@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
-import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
+import { Package } from 'lucide-react'
+import { ChartContainer, CHART_COLORS, CHART_THEME, chartGradientColor, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoMaterial } from '@/hooks/useDashboardData'
 import { useFiltrosStore, useFilteredMateriais } from '@/store/filtros.store'
 import { formatCurrency, truncate } from '@/lib/utils'
@@ -37,7 +38,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
           return buildTooltipHtml({
             title: item.materialNome,
             rows: [
-              { label: 'Faturamento', value: formatCurrency(p.value, true), color: CHART_COLORS.blue, highlight: true },
+              { label: 'Faturamento', value: formatCurrency(p.value, true), color: CHART_COLORS.teal, highlight: true },
               { label: '%',       value: `${pct}% do total` },
             ],
           })
@@ -51,28 +52,33 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
         inverse: true,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: '#c9c9c9', fontSize: 12, fontFamily: 'Roboto', width: 150, overflow: 'truncate' as const },
+        axisLabel: { color: CHART_THEME.textColor, fontSize: 12, fontFamily: 'Roboto', width: 150, overflow: 'truncate' as const },
       },
       series: [{
         type: 'bar',
         barMaxWidth: 14,
-        data: items.map((d) => {
+        data: items.map((d, i) => {
           const isActive = activeIds.length === 0 || activeIds.includes(d.materialId)
+          const barColor = chartGradientColor(items.length - 1 - i, items.length)
+          const dimmed   = barColor.replace('rgb(', 'rgba(').replace(')', ', 0.18)')
           return {
             value: d.faturamento,
             itemStyle: {
               borderRadius: [0, 3, 3, 0],
               color: isActive ? {
-                type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
-                colorStops: [{ offset: 0, color: `${CHART_COLORS.blue}88` }, { offset: 1, color: CHART_COLORS.blue }],
-              } : `${CHART_COLORS.blue}28`,
+                type: 'linear' as const, x: 0, y: 0, x2: 1, y2: 0,
+                colorStops: [
+                  { offset: 0, color: barColor.replace('rgb(', 'rgba(').replace(')', ', 0.65)') },
+                  { offset: 1, color: barColor },
+                ],
+              } : dimmed,
             },
             emphasis: { disabled: true },
           }
         }),
         label: {
           show: true, position: 'right' as const,
-          color: '#c9c9c9', fontSize: 13, fontFamily: 'Roboto',
+          color: CHART_THEME.textColor, fontSize: 13, fontFamily: 'Roboto',
           formatter: (p: { value: number }) => formatCurrency(p.value, true),
         },
       }],
@@ -86,6 +92,7 @@ export const TopMateriaisChart = memo(function TopMateriaisChart() {
   return (
     <ChartContainer
       title="Faturamento por Materiais"
+      titleIcon={Package}
       option={option}
       loading={isLoading}
       error={isError}
