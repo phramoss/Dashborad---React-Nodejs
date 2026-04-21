@@ -1,13 +1,14 @@
 import { memo, useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
 import { ChevronLeft, ChevronsDown, ChevronDown, RotateCcw, TrendingUp } from 'lucide-react'
-import { ChartContainer, CHART_COLORS, CHART_THEME, buildTooltipHtml } from './ChartContainer'
+import { ChartContainer, CHART_COLORS, getChartTheme, buildTooltipHtml } from './ChartContainer'
 import {
   useFaturamentoPeriodo,
   useFaturamentoPorMes,
   useFaturamentoTodosMeses,
 } from '@/hooks/useDashboardData'
 import { useFiltrosStore, useDrill } from '@/store/filtros.store'
+import { useThemeStore } from '@/store/theme.store'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 
 interface PeriodoItem {
@@ -77,6 +78,8 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
   const { data: dataAnos, isLoading: loadingAnos, isError, refetch } = useFaturamentoPeriodo()
   const { filtros, toggleAno, toggleMes, drillInto, drillOut, expandAll } = useFiltrosStore()
   const drill = useDrill()
+  const theme = useThemeStore(s => s.theme)
+  const CT    = getChartTheme(theme)
 
   // Drill de 1 ano → meses daquele ano
   const { data: dataMeses, isLoading: loadingMes } = useFaturamentoPorMes(
@@ -149,8 +152,8 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
       animationEasing: 'cubicOut',
       tooltip: {
         trigger: 'axis',
-        backgroundColor: CHART_THEME.tooltipBg,
-        borderColor: CHART_THEME.tooltipBorder,
+        backgroundColor: CT.tooltipBg,
+        borderColor: CT.tooltipBorder,
         borderWidth: 1,
         padding: [10, 14],
         extraCssText: 'border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5)',
@@ -178,13 +181,13 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
         axisLine: { lineStyle: { color: '#5a5e5d' } },
         axisTick: { show: false },
         axisLabel: {
-          color: CHART_THEME.textColor,
+          color: CT.textColor,
           fontSize: drill.mode === 'expandAll' ? 10 : 12,
           fontFamily: 'Roboto',
           margin: 10,
           rotate: drill.mode === 'expandAll' ? 45 : 0,
           rich: {
-            bold: { color: CHART_THEME.textColor, fontSize: 10, fontWeight: 'bold', fontFamily: 'Roboto' },
+            bold: { color: CT.textColor, fontSize: 10, fontWeight: 'bold', fontFamily: 'Roboto' },
           },
         },
         splitLine: {
@@ -198,9 +201,9 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
       yAxis: {
         type: 'value',
         max: maxVal * 1.18,
-        splitLine: { lineStyle: { color: CHART_THEME.gridLineColor, type: 'dashed', opacity: 0.6 } },
+        splitLine: { lineStyle: { color: CT.gridLineColor, type: 'dashed', opacity: 0.6 } },
         axisLabel: {
-          color: CHART_THEME.textColor,
+          color: CT.textColor,
           fontSize: 12,
           fontFamily: 'Roboto',
           formatter: (v: number) => {
@@ -260,7 +263,7 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
           label: {
             show: true,
             position: 'top' as const,
-            color: CHART_THEME.textColor,
+            color: CT.textColor,
             fontSize: drill.mode === 'expandAll' ? 9 : 12,
             fontFamily: 'Roboto',
             formatter: (p: { value: unknown }) => {
@@ -282,7 +285,7 @@ export const FaturamentoPeriodoChart = memo(function FaturamentoPeriodoChart() {
         },
       } : {}),
     }
-  }, [items, filtros.anos, filtros.meses, drill, expandAllAnos, mesNumByIndex])
+  }, [items, filtros.anos, filtros.meses, drill, expandAllAnos, mesNumByIndex, theme])
 
   // Legenda de anos no expandAll (abaixo do gráfico)
   const anosNoExpandAll = useMemo(() => {

@@ -1,4 +1,4 @@
-import { memo, useMemo, useEffect, useRef, useCallback } from 'react'
+import { memo, useMemo, useEffect, useRef, useCallback, useState } from 'react'
 import { Map } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -73,6 +73,7 @@ const MapaInner = memo(function MapaInner({ pontos, activeMunicipios, onToggle }
   const layerRef     = useRef<L.LayerGroup | null>(null)
   const fittedRef    = useRef(false)
   const theme = useThemeStore(s => s.theme)
+  const [mapReady, setMapReady] = useState(false)
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -99,6 +100,7 @@ const MapaInner = memo(function MapaInner({ pontos, activeMunicipios, onToggle }
 
     layerRef.current = L.layerGroup().addTo(map)
     mapRef.current = map
+    setMapReady(true)
 
     const ro = new ResizeObserver(() => map.invalidateSize())
     ro.observe(containerRef.current)
@@ -109,6 +111,7 @@ const MapaInner = memo(function MapaInner({ pontos, activeMunicipios, onToggle }
       mapRef.current = null
       layerRef.current = null
       fittedRef.current = false
+      setMapReady(false)
     }
   }, [theme])
 
@@ -169,7 +172,7 @@ const MapaInner = memo(function MapaInner({ pontos, activeMunicipios, onToggle }
       map.flyToBounds(bounds, { padding: [40, 40], duration: 1.2, maxZoom: 7 })
       fittedRef.current = true
     }
-  }, [pontos, activeMunicipios, onToggle])
+  }, [pontos, activeMunicipios, onToggle, mapReady])
 
   return (
     <div className="relative flex-1 min-h-0">

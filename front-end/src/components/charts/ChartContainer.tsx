@@ -18,8 +18,18 @@ export const CHART_COLORS = {
   gray:   '#666666',
 } as const
 
+export function getChartTheme(theme: 'dark' | 'light') {
+  return {
+    textColor:     theme === 'dark' ? '#cdcdce' : '#000000',
+    axisColor:     theme === 'dark' ? 'rgba(66,141,148,0.20)' : 'rgba(0,0,0,0.15)',
+    gridLineColor: theme === 'dark' ? 'rgba(66,141,148,0.08)' : 'rgba(0,0,0,0.06)',
+    tooltipBg:     '#111111',
+    tooltipBorder: '#333333',
+  }
+}
+
 export const CHART_THEME = {
-  get textColor()     { return getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#8892B0' },
+  get textColor()     { return getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#cdcdce' },
   get axisColor()     { return getComputedStyle(document.documentElement).getPropertyValue('--chart-axis').trim() || 'rgba(66,141,148,0.20)' },
   get tooltipBg()     { return '#111111' },
   get tooltipBorder() { return '#333333' },

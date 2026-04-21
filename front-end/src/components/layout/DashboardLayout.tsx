@@ -19,7 +19,7 @@ export function DashboardLayout() {
       <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg)] transition-colors duration-300">
         <Sidebar open={sidebarOpen} onClose={handleSidebarClose} />
 
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden transition-all duration-200">
           <TopBar onMenuClick={handleMenuClick} />
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-3">

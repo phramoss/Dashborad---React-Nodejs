@@ -87,8 +87,8 @@ export const FiltroAnosSelect = memo(function FiltroAnosSelect() {
           'flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs w-full',
           'border transition-all duration-150',
           open || hasSelection
-            ? 'border-brand/50 bg-brand/5 text-text-primary'
-            : 'border-surface-border bg-surface-light text-text-secondary hover:border-surface-border/80 hover:text-text-primary',
+            ? 'border-brand/50 bg-[var(--surface)] text-text-primary'
+            : 'border-[var(--border)] bg-[var(--surface)] text-text-secondary hover:text-text-primary',
         )}
       >
         <span className="text-text-muted text-[11.5px] uppercase tracking-wider shrink-0">Ano</span>
@@ -107,7 +107,7 @@ export const FiltroAnosSelect = memo(function FiltroAnosSelect() {
         <div
           id="anos-dropdown"
           style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
-          className="bg-surface border border-surface-border rounded-xl shadow-card flex flex-col overflow-hidden"
+          className="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-card flex flex-col overflow-hidden"
         >
           <div className="max-h-52 overflow-y-auto py-1">
             {anos.length === 0 ? (
@@ -138,7 +138,7 @@ export const FiltroAnosSelect = memo(function FiltroAnosSelect() {
             )}
           </div>
           {hasSelection && (
-            <div className="border-t border-surface-border px-3 py-2 flex items-center justify-between">
+            <div className="border-t border-[var(--border)] px-3 py-2 flex items-center justify-between">
               <span className="text-[11.5px] text-text-muted">
                 {selected.length} selecionado{selected.length > 1 ? 's' : ''}
               </span>

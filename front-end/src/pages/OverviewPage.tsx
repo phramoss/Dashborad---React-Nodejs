@@ -25,12 +25,7 @@ export function OverviewPage() {
       {/* ── Charts area (left) ─────────────────────────────── */}
       <div className="flex flex-col gap-3 flex-1 min-w-0">
 
-        {/* FiltroBar */}
-        <ErrorBoundary>
-          <div className="rounded-xl bg-surface border border-surface-border px-4 py-3 card-glow">
-            <FiltroBar />
-          </div>
-        </ErrorBoundary>
+        <FiltroBar />
 
         {/* Wide period chart — full width */}
         <ErrorBoundary>

@@ -305,49 +305,75 @@ router.get('/analytics/rosca/mercado', async (req, res, next) => {
 })
 
 // ─── Mapa de Faturamento por Município ───────────────────────────────────────
-// FIX: usa buildFiltersForAlias('FAT') — sem regex replace
 router.get('/analytics/mapa-faturamento', async (req, res, next) => {
+  function parseCoord(val) {
+    if (val == null) return 0
+    if (typeof val === 'number') return isNaN(val) ? 0 : val
+    const cleaned = String(val).replace(',', '.')
+    const num = parseFloat(cleaned)
+    return isNaN(num) ? 0 : num
+  }
+
   try {
-    const baseWhere = [`UF_PESS <> 'EX'`, `FAT.TOTAL_DOCIT > 0`]
+    const baseWhere = [`CLI.UF_PESS <> 'EX'`, `FAT.TOTAL_DOCIT > 0`]
     const { where, params } = buildFiltersForAlias(req.query, 'FAT')
     const w = toWhere([...baseWhere, ...where])
 
-    const sql = `
+    // Tenta primeiro com LATITUDE/LONGITUDE direto em BI_CLIENTE
+    const sqlDirect = `
       SELECT
-        MUN_PESS MUNICIPIO,
-        UF_PESS UF,
-        LATITUDE,
-        LONGITUDE,
+        CLI.MUN_PESS AS MUNICIPIO,
+        CLI.UF_PESS  AS UF,
+        CLI.LATITUDE,
+        CLI.LONGITUDE,
         ROUND(SUM(FAT.TOTAL_DOCIT), 2) AS total,
-        COUNT(DISTINCT BI_CLIENTE.COD_CLIENTE) AS num_clientes
-      FROM BI_CLIENTE
-      JOIN BI_FATURAMENTO FAT ON BI_CLIENTE.COD_CLIENTE = FAT.COD_CLIENTE
+        COUNT(DISTINCT CLI.COD_CLIENTE) AS num_clientes
+      FROM BI_CLIENTE CLI
+      JOIN BI_FATURAMENTO FAT ON CLI.COD_CLIENTE = FAT.COD_CLIENTE
       ${w}
-      GROUP BY MUN_PESS, UF_PESS, LATITUDE, LONGITUDE
+      GROUP BY CLI.MUN_PESS, CLI.UF_PESS, CLI.LATITUDE, CLI.LONGITUDE
       ORDER BY total DESC
       ROWS 1 TO 150
     `
-    const rows = await query(sql, params)
 
-    // Converte valor de coordenada que pode vir como:
-    //   - número nativo (ex: -19.338)
-    //   - string com vírgula (ex: "-19,338" — locale pt-BR / Firebird)
-    //   - string com ponto (ex: "-19.338")
-    //   - null / undefined
-    function parseCoord(val) {
-      if (val == null) return 0
-      if (typeof val === 'number') return isNaN(val) ? 0 : val
-      // String: troca vírgula por ponto antes de converter
-      const cleaned = String(val).replace(',', '.')
-      const num = parseFloat(cleaned)
-      return isNaN(num) ? 0 : num
+    // Fallback: JOIN com tabela LATLONG pelo campo IBGE_MUN
+    const sqlLatlong = `
+      SELECT
+        CLI.MUN_PESS AS MUNICIPIO,
+        CLI.UF_PESS  AS UF,
+        LL.LATITUDE,
+        LL.LONGITUDE,
+        ROUND(SUM(FAT.TOTAL_DOCIT), 2) AS total,
+        COUNT(DISTINCT CLI.COD_CLIENTE) AS num_clientes
+      FROM BI_CLIENTE CLI
+      JOIN BI_FATURAMENTO FAT ON CLI.COD_CLIENTE = FAT.COD_CLIENTE
+      JOIN LATLONG LL ON LL.GEOCODIGO_MUNICIPIO = CLI.IBGE_MUN
+      ${w}
+      GROUP BY CLI.MUN_PESS, CLI.UF_PESS, LL.LATITUDE, LL.LONGITUDE
+      ORDER BY total DESC
+      ROWS 1 TO 150
+    `
+
+    let rows
+    try {
+      rows = await query(sqlDirect, params)
+      // Se nenhuma linha tem coordenada válida, tenta o fallback com LATLONG
+      const hasCoords = rows.some(r => parseCoord(r.LATITUDE ?? r.latitude) !== 0)
+      if (!hasCoords && rows.length > 0) {
+        rows = await query(sqlLatlong, params)
+      }
+    } catch {
+      rows = await query(sqlLatlong, params)
     }
+
+    console.log('[mapa-faturamento] rows retornados:', rows.length)
+    if (rows.length > 0) console.log('[mapa-faturamento] amostra:', rows[0])
 
     res.json(rows.map(r => ({
       municipio:   String(r.MUNICIPIO    || r.municipio    || ''),
       uf:          String(r.UF           || r.uf           || ''),
-      lat:         parseCoord(r.latitude  ?? r.LATITUDE),
-      lng:         parseCoord(r.longitude ?? r.LONGITUDE),
+      lat:         parseCoord(r.LATITUDE  ?? r.latitude),
+      lng:         parseCoord(r.LONGITUDE ?? r.longitude),
       faturamento: Number(r.TOTAL        || r.total        || 0),
       numClientes: Number(r.NUM_CLIENTES || r.num_clientes || 0),
     })))

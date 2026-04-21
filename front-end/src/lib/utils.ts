@@ -79,3 +79,36 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     timer = setTimeout(() => fn(...args), delay)
   }
 }
+
+// ─── Formatação tabular ───────────────────────────────────────────────────────
+
+/** Número decimal pt-BR — ex: 1.234,56 */
+export function fmtNum(v: number): string {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/** Inteiro pt-BR — ex: 1.234 */
+export function fmtInt(v: number): string {
+  return Math.round(v).toLocaleString('pt-BR')
+}
+
+/** Alias de fmtNum para uso como moeda sem símbolo */
+export const fmtCur = fmtNum
+
+/** Moeda BRL completa — ex: R$ 1.234,56 */
+export function fmtBRL(v: number, decimals: 0 | 2 = 2): string {
+  return v.toLocaleString('pt-BR', {
+    style: 'currency', currency: 'BRL',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
+}
+
+/** Percentual pt-BR — ex: 12,34% */
+export function fmtPct(v: number, alreadyPct = false): string {
+  const val = alreadyPct ? v : v * 100
+  return `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+}
+
+/** Meses abreviados pt-BR */
+export const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'] as const

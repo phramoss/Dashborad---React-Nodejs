@@ -61,8 +61,6 @@ const fmtNum = (v: number) =>
 const fmtInt = (v: number) =>
   Math.round(v).toLocaleString('pt-BR')
 
-const sanitize = (s: string) =>
-  s.replace(/\?/g, '').trim()
 
 // ─── Hierarquia de campos por tabela ─────────────────────────
 const CHAPA_HEADERS = [
@@ -288,7 +286,7 @@ function InlineRows({
                   onClick={() => applyClickFilter(currentLevel, row.value, currentField, parentDrill.path, filtros, onFilter)}
                   title={row.label}
                 >
-                  {sanitize(row.label)}
+                  {row.label}
                 </button>
               </div>
               <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-2">
@@ -465,7 +463,7 @@ const HierarchyTable = memo(function HierarchyTable({
                       onClick={() => applyClickFilter(0, row.value, level0Field, [], filtros, onFilter)}
                       title={row.label}
                     >
-                      {sanitize(row.label)}
+                      {row.label}
                     </button>
                   </div>
                   <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-2">
@@ -607,7 +605,7 @@ function InlineMatrizRows({
                     onClick={() => applyClickFilter(currentLevel, value, currentField, parentDrill.path, filtros, onFilter, true)}
                     title={label}
                   >
-                    {sanitize(label)}
+                    {label}
                   </button>
                 </div>
               </td>
@@ -862,7 +860,7 @@ const HierarchyMatriz = memo(function HierarchyMatriz({
                           'text-[11px] block truncate',
                           isSelected ? 'text-brand font-medium' : 'text-text-secondary',
                         )}>
-                          {sanitize(item.label)}
+                          {item.label}
                         </span>
                       </td>
                       {/* Células de período */}
@@ -1141,7 +1139,7 @@ const MobileDrawer = memo(function MobileDrawer({ open, onClose }: MobileDrawerP
       <div
         onClick={onClose}
         className={cn(
-          'sm:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300',
+          'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300',
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         )}
         aria-hidden="true"
@@ -1150,7 +1148,7 @@ const MobileDrawer = memo(function MobileDrawer({ open, onClose }: MobileDrawerP
         role="dialog"
         aria-modal="true"
         className={cn(
-          'sm:hidden fixed top-0 right-0 h-full z-50 w-[85vw] max-w-[320px]',
+          'fixed top-0 right-0 h-full z-50 w-[85vw] max-w-[320px]',
           'bg-surface border-l border-surface-border shadow-2xl',
           'overflow-y-auto overscroll-contain',
           'transition-transform duration-300 ease-out',
@@ -1234,16 +1232,6 @@ export function EstoquePage() {
   return (
     <div className="flex flex-col gap-4 max-w-[1800px] mx-auto pb-8">
 
-      {/* ── Filtros ─────────────────────────────────────────── */}
-      <ErrorBoundary>
-        <div className="hidden sm:block rounded-xl bg-surface border border-surface-border px-4 py-3 card-glow">
-          <FiltrosInline />
-        </div>
-        <div className="sm:hidden h-0 overflow-hidden" aria-hidden="true">
-          <FiltrosInline />
-        </div>
-      </ErrorBoundary>
-
       {/* ── Cards KPI ───────────────────────────────────────── */}
       <ErrorBoundary>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1324,11 +1312,11 @@ export function EstoquePage() {
       {/* ── Drawer mobile ───────────────────────────────────── */}
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* ── Botão flutuante mobile ───────────────────────────── */}
+      {/* ── Botão flutuante ─────────────────────────────────── */}
       <button
         onClick={() => setDrawerOpen(v => !v)}
         className={cn(
-          'sm:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl',
+          'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl',
           'flex items-center justify-center transition-all duration-200 active:scale-95',
           activeCount > 0
             ? 'bg-brand shadow-brand/30 text-surface-dark'

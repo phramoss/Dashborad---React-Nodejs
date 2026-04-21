@@ -143,8 +143,8 @@ export const MultiSelect = memo(function MultiSelect({
           'flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs',
           'border transition-all duration-150 min-w-[140px] max-w-[280px] w-full',
           open || hasSelection
-            ? 'border-brand/50 bg-brand/5 text-text-primary'
-            : 'border-surface-border bg-surface-light text-text-secondary hover:border-surface-border/80 hover:text-text-primary',
+            ? 'border-brand/50 bg-[var(--surface)] text-text-primary'
+            : 'border-[var(--border)] bg-[var(--surface)] text-text-secondary hover:text-text-primary',
           triggerClassName,
         )}
       >
@@ -169,10 +169,10 @@ export const MultiSelect = memo(function MultiSelect({
         <div
           id={dropId}
           style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
-          className="bg-surface border border-surface-border rounded-xl shadow-card flex flex-col overflow-hidden"
+          className="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-card flex flex-col overflow-hidden"
         >
           {/* Busca */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-surface-border">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border)]">
             <Search size={12} className="text-text-muted shrink-0" />
             <input
               ref={searchRef}
@@ -222,7 +222,7 @@ export const MultiSelect = memo(function MultiSelect({
 
           {/* Footer */}
           {selected.length > 0 && (
-            <div className="border-t border-surface-border px-3 py-2 flex items-center justify-between">
+            <div className="border-t border-[var(--border)] px-3 py-2 flex items-center justify-between">
               <span className="text-[11.5px] text-text-muted">
                 {selected.length} selecionado{selected.length > 1 ? 's' : ''}
               </span>

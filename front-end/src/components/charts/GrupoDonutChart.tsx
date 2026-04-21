@@ -1,21 +1,20 @@
 import { memo, useMemo, useCallback } from 'react'
 import type { EChartsOption } from 'echarts'
 import { PieChart } from 'lucide-react'
-import { ChartContainer, CHART_THEME, buildTooltipHtml } from './ChartContainer'
+import { ChartContainer, getChartTheme, buildTooltipHtml } from './ChartContainer'
 import { useFaturamentoGrupo } from '@/hooks/useDashboardData'
 import { useFiltrosStore, useFilteredGrupos } from '@/store/filtros.store'
+import { useThemeStore } from '@/store/theme.store'
 import { formatCurrency } from '@/lib/utils'
 
 const DONUT_PALETTE = ['#428D94', '#A70000', '#AA3E98', '#4A90D9', '#F5A623']
-
-function sanitizeName(name: string): string {
-  return name.replace(/\uFFFD/g, 'Ç').trim()
-}
 
 export const GrupoDonutChart = memo(function GrupoDonutChart() {
   const { data, isLoading, isError, refetch } = useFaturamentoGrupo()
   const activeGrupos = useFilteredGrupos()
   const toggleGrupo = useFiltrosStore(s => s.toggleGrupo)
+  const theme = useThemeStore(s => s.theme)
+  const CT    = getChartTheme(theme)
 
   const items = useMemo(() => {
     return (data ?? [])
@@ -23,7 +22,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
         ...d,
         grupoNome: d.grupoId === 0 || d.grupoNome === 'Grupo null' || d.grupoNome === 'Grupo 0'
           ? 'Sem Grupo'
-          : sanitizeName(d.grupoNome),
+          : d.grupoNome,
       }))
       .filter(d => d.faturamento > 0)
   }, [data])
@@ -57,8 +56,8 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       grid: { containLabel: true },
       tooltip: {
         trigger: 'item',
-        backgroundColor: CHART_THEME.tooltipBg,
-        borderColor: CHART_THEME.tooltipBorder,
+        backgroundColor: CT.tooltipBg,
+        borderColor: CT.tooltipBorder,
         borderWidth: 1,
         padding: [10, 14],
         extraCssText: 'border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5)',
@@ -83,11 +82,11 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
         pageButtonItemGap: 5,
         pageButtonGap: 8,
         pageButtonPosition: 'end',
-        pageIconColor: CHART_THEME.textColor,
-        pageIconInactiveColor: CHART_THEME.axisColor,
+        pageIconColor: CT.textColor,
+        pageIconInactiveColor: CT.axisColor,
         pageIconSize: 12,
         pageTextStyle: {
-          color: CHART_THEME.textColor,
+          color: CT.textColor,
           fontSize: 10,
           fontFamily: 'Roboto',
         },
@@ -99,12 +98,12 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
         // Desabilita show/hide nativo — controle fica no store
         selectedMode: false,
         textStyle: {
-          color: CHART_THEME.textColor,
+          color: CT.textColor,
           fontSize: 11,
           fontFamily: 'Roboto',
           rich: {
             dim: {
-              color: CHART_THEME.axisColor,
+              color: CT.axisColor,
               fontSize: 11,
               fontFamily: 'Roboto',
             },
@@ -136,7 +135,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
           ].join('\n'),
           rich: {
             value: {
-              color: CHART_THEME.textColor,
+              color: CT.textColor,
               fontSize: 16,
               fontWeight: '600',
               fontFamily: 'Roboto',
@@ -144,7 +143,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
               align: 'center',
             },
             sub: {
-              color: '#c6c6c6',
+              color: CT.textColor,
               fontSize: 14,
               fontFamily: 'Roboto',
               lineHeight: 17,
@@ -168,7 +167,7 @@ export const GrupoDonutChart = memo(function GrupoDonutChart() {
       }],
       graphic: [],
     }
-  }, [items, itemsByName, activeGrupos, total, totalExibido])
+  }, [items, itemsByName, activeGrupos, total, totalExibido, theme])
 
   const handleLegendClick = useCallback((params: { name: string }) => {
     const item = itemsByName.get(params.name)

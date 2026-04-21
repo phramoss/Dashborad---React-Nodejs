@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useCallback, useEffect } from 'react'
+import { memo, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import {
   SlidersHorizontal, RefreshCw, Filter, ChevronRight, ChevronDown,
   TrendingUp, BarChart2, DollarSign, Percent,
@@ -45,6 +45,28 @@ function rowStyle(linha: DreLinha, val: number) {
     return { row: 'bg-surface-light/10', val: 'text-chart-purple font-medium' }
   }
   return { row: '', val: 'text-text-primary' }
+}
+
+// ─── Carregamento progressivo ─────────────────────────────────────────────────
+const PAGE_SIZE_DRE = 30
+
+function useLazyRows<T>(rows: T[]) {
+  const [page, setPage] = useState(1)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { setPage(1) }, [rows])
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setPage(p => p + 1) },
+      { threshold: 0.1 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+  const visible = rows.slice(0, page * PAGE_SIZE_DRE)
+  const hasMore = visible.length < rows.length
+  return { visible, hasMore, sentinelRef }
 }
 
 // ─── KPI mini-card ────────────────────────────────────────────────────────────
@@ -279,6 +301,7 @@ interface DreMatrizProps {
 const DreMatriz = memo(function DreMatriz({ linhas, periodos, loading }: DreMatrizProps) {
   const [expandedLinhas, setExpandedLinhas] = useState<Set<number>>(new Set())
   const [expandedContas, setExpandedContas] = useState<Set<string>>(new Set())
+  const { visible: visibleLinhas, hasMore: hasMoreLinhas, sentinelRef: linhaSentinelRef } = useLazyRows(linhas)
 
   const toggleLinha = useCallback((cod: number) => {
     setExpandedLinhas(prev => {
@@ -341,7 +364,7 @@ const DreMatriz = memo(function DreMatriz({ linhas, periodos, loading }: DreMatr
           </tr>
         </thead>
         <tbody>
-          {linhas.map(linha => (
+          {visibleLinhas.map(linha => (
             <DreLinhRow
               key={linha.cod}
               linha={linha}
@@ -352,6 +375,15 @@ const DreMatriz = memo(function DreMatriz({ linhas, periodos, loading }: DreMatr
               onToggleConta={toggleConta}
             />
           ))}
+          {hasMoreLinhas && (
+            <tr>
+              <td colSpan={999}>
+                <div ref={linhaSentinelRef} className="h-8 flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full border-2 border-brand/40 border-t-brand animate-spin" />
+                </div>
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

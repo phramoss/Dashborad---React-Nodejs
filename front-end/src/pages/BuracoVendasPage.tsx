@@ -65,7 +65,6 @@ const fmtInt = (v: number) =>
 const fmtCur = (v: number) =>
   formatCurrency(v)
 
-const sanitize = (s: string) => s.replace(/\?/g, '').trim()
 
 // ─── Hierarquias ─────────────────────────────────────────────
 // Sequência de Vendas: nivel=0=Cliente, nivel=1=Pedido(folha)
@@ -270,7 +269,7 @@ function BVInlineRows({
                   onClick={() => applyBVTableFilter(currentField, row.value, parentDrill.path, filtros, onFilter)}
                   title={row.label}
                 >
-                  {sanitize(row.label)}
+                  {row.label}
                 </button>
               </div>
               <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-2">
@@ -437,7 +436,7 @@ const BVHierarchyTable = memo(function BVHierarchyTable({
                       onClick={() => applyBVTableFilter(level0Field, row.value, [], filtros, onFilter)}
                       title={row.label}
                     >
-                      {sanitize(row.label)}
+                      {row.label}
                     </button>
                   </div>
                   <span className="text-[11px] text-text-primary tabular-nums text-right self-center pr-2">
@@ -560,7 +559,7 @@ function BVSeqInlineRows({
                   )}
                   title={label}
                 >
-                  {sanitize(label)}
+                  {label}
                 </span>
               </div>
             </td>
@@ -809,7 +808,7 @@ const BVSequenciaMatriz = memo(function BVSequenciaMatriz({
                           'text-[11px] block truncate',
                           isSelected ? 'text-brand font-medium' : 'text-text-secondary',
                         )}>
-                          {sanitize(item.label)}
+                          {item.label}
                         </span>
                         {isExpanded && item.campoAdicional && (
                           <span className="text-[10px] block truncate text-text-muted mt-0.5" title={item.campoAdicional}>
@@ -972,7 +971,7 @@ function BVFatInlineMatrizRows({
                     onClick={() => applyBVFatFilter(currentField, value, parentDrill.path, filtros, onFilter)}
                     title={label}
                   >
-                    {sanitize(label)}
+                    {label}
                   </button>
                 </div>
               </td>
@@ -1211,7 +1210,7 @@ const BVFatHierarchyMatriz = memo(function BVFatHierarchyMatriz({
                         title={item.label}
                       >
                         <span className={cn('text-[11px] block truncate', isSelected ? 'text-brand font-medium' : 'text-text-secondary')}>
-                          {sanitize(item.label)}
+                          {item.label}
                         </span>
                       </td>
                       {periodos.map(p => {
@@ -1377,7 +1376,7 @@ const MateriaisCompradosTable = memo(function MateriaisCompradosTable({
               style={{ gridTemplateColumns: '1fr 96px 72px 72px 52px 52px 108px' }}
             >
               <span className="text-[11px] text-text-secondary truncate pl-3 py-1.5 pr-1" title={row.material}>
-                {sanitize(row.material)}
+                {row.material}
               </span>
               <span className="text-[11px] text-text-muted tabular-nums text-right self-center pr-2">
                 {row.ultimaVenda ? formatDate(row.ultimaVenda) : '—'}
@@ -1637,7 +1636,7 @@ const BVMobileDrawer = memo(function BVMobileDrawer({ open, onClose }: BVMobileD
       <div
         onClick={onClose}
         className={cn(
-          'sm:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300',
+          'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300',
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         )}
         aria-hidden="true"
@@ -1646,7 +1645,7 @@ const BVMobileDrawer = memo(function BVMobileDrawer({ open, onClose }: BVMobileD
         role="dialog"
         aria-modal="true"
         className={cn(
-          'sm:hidden fixed top-0 right-0 h-full z-50 w-[85vw] max-w-[320px]',
+          'fixed top-0 right-0 h-full z-50 w-[85vw] max-w-[320px]',
           'bg-surface border-l border-surface-border shadow-2xl',
           'overflow-y-auto overscroll-contain',
           'transition-transform duration-300 ease-out',
@@ -1744,13 +1743,6 @@ export function BuracoVendasPage() {
         </div>
       </div> */}
 
-      {/* ── Filtros desktop ──────────────────────────────────── */}
-      <ErrorBoundary>
-        <div className="hidden sm:block rounded-xl bg-surface border border-surface-border px-4 py-3 card-glow">
-          <BVFiltrosInline />
-        </div>
-      </ErrorBoundary>
-
       {/* ── Bloco 1: Sequência de Vendas ─────────────────────── */}
       <ErrorBoundary>
         <BVSequenciaMatriz
@@ -1812,11 +1804,11 @@ export function BuracoVendasPage() {
       {/* ── Drawer mobile ────────────────────────────────────── */}
       <BVMobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* ── Botão flutuante mobile ───────────────────────────── */}
+      {/* ── Botão flutuante ─────────────────────────────────── */}
       <button
         onClick={() => setDrawerOpen(v => !v)}
         className={cn(
-          'sm:hidden fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl',
+          'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl',
           'flex items-center justify-center transition-all duration-200 active:scale-95',
           activeCount > 0
             ? 'bg-brand shadow-brand/30 text-surface-dark'

@@ -24,17 +24,20 @@ function VendedorCard({
         'border transition-colors duration-200',
         isDimmed
           ? 'bg-surface-dark/40 border-transparent opacity-40'
-          : 'bg-surface-dark/60 border-surface-border/50',
+          : 'bg-surface-dark/60 border-[#8892B0]/60',
       )}
     >
       {/* Badge de ranking */}
-      <div className={cn(
-        'w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold',
-        rank === 1 ? 'bg-chart-yellow/20 text-chart-yellow' :
-        rank === 2 ? 'bg-text-muted/20 text-text-muted' :
-        rank === 3 ? 'bg-chart-orange/20 text-chart-orange' :
-        'bg-surface-light text-text-muted',
-      )}>
+      <div
+        className={cn(
+          'w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold',
+          rank === 1 ? 'bg-chart-yellow/20 text-chart-yellow' :
+          rank === 2 ? 'bg-text-muted/20 text-text-muted' :
+          rank === 3 ? 'bg-chart-orange/20 text-chart-orange' :
+          'bg-surface-light',
+        )}
+        style={rank >= 4 ? { color: 'var(--text-muted)' } : undefined}
+      >
         {rank}
       </div>
 
